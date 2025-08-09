@@ -1,32 +1,38 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SRK = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+
+async function sb(path: string, init: RequestInit){
+  const h = new Headers(init.headers || {});
+  h.set('apikey', SRK); h.set('Authorization', `Bearer ${SRK}`);
+  return fetch(`${SUPABASE_URL}${path}`, { ...init, headers: h });
+}
+
 serve(async (req) => {
-  try {
+  try{
     const payload = await req.json();
+    const { run_id, persona_id, device_id, proxy_id, outcome, signals } = payload;
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    const resp = await fetch(`${SUPABASE_URL}/rest/v1/vanta_updates`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({
-        change_type: payload.change_type || "unknown",
-        payload,
-        model_version: payload.model_version || "unknown",
-        update_notes: payload.update_notes || null,
-        updated_at: new Date().toISOString(),
-      }),
+    // Insert session feedback
+    await sb('/rest/v1/vanta_session_feedback', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ run_id, persona_id, device_id, proxy_id, outcome, signals })
     });
 
-    const data = await resp.json();
-    return new Response(JSON.stringify({ ok: true, data }), { status: 200 });
-  } catch (e) {
+    // Update device score (very naive increment)
+    await sb(`/rest/v1/vanta_fingerprint_scores`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify({ device_id, total_runs: 1, success_rate: outcome === 'pass' ? 0.9 : 0.4, last_used_at: new Date().toISOString() })
+    });
+
+    // Update proxy score
+    await sb(`/rest/v1/vanta_proxy_scores`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify({ proxy_id, total_runs: 1, success_rate: outcome === 'pass' ? 0.85 : 0.3, last_used_at: new Date().toISOString() })
+    });
+
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  } catch(e){
     return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 500 });
   }
 });
