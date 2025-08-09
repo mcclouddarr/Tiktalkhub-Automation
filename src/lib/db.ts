@@ -102,18 +102,24 @@ export type ReferralTaskRow = {
 }
 
 // Queries
-export async function fetchPersonas() {
-  return supabase
+export async function fetchPersonas(limit = 50, offset = 0, search = '') {
+  let query = supabase
     .from("personas")
-    .select("*, devices:device_id(id, device_name, os, browser_type), proxies:proxy_id(id, ip, proxy_type)")
-    .order("created_at", { ascending: false });
+    .select("*, devices:device_id(id, device_name, os, browser_type), proxies:proxy_id(id, ip, proxy_type)", { count: 'exact' })
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (search) query = query.ilike('name', `%${search}%`)
+  return query;
 }
 
-export async function fetchDevices() {
-  return supabase
+export async function fetchDevices(limit = 50, offset = 0, filterType = '') {
+  let query = supabase
     .from("devices")
-    .select("*")
-    .order("created_at", { ascending: false });
+    .select("*", { count: 'exact' })
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (filterType) query = query.ilike('browser_type', `%${filterType}%`)
+  return query;
 }
 
 export async function fetchSessions() {
@@ -124,11 +130,15 @@ export async function fetchSessions() {
     .limit(200);
 }
 
-export async function fetchProxies() {
-  return supabase
+export async function fetchProxies(limit = 50, offset = 0, country = '', status = '') {
+  let query = supabase
     .from("proxies")
-    .select("*")
-    .order("updated_at", { ascending: false });
+    .select("*", { count: 'exact' })
+    .order("updated_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (country) query = query.ilike('location_metadata->>country', `%${country}%`)
+  if (status) query = query.eq('status', status)
+  return query;
 }
 
 // Create
