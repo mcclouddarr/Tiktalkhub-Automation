@@ -24,6 +24,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchProxies, createProxy } from "@/lib/db";
 import { supabase } from "@/lib/supabaseClient";
+import { autoSwitchProxy } from "@/lib/proxyEngine";
 import {
   Shield,
   Plus,
@@ -402,10 +403,14 @@ export default function ProxyManager() {
                   <TableCell>{proxy.provider}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => checkProxyHealth(proxy.id, proxy.ip, proxy.port)}>
+                      <Button variant="ghost" size="sm" title="Check health" onClick={() => checkProxyHealth(proxy.id, proxy.ip, proxy.port)}>
                         <RefreshCw className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" title="Auto-switch from this proxy" onClick={async () => {
+                        const next = await autoSwitchProxy(proxy.id);
+                        if (next) alert(`Switched to ${next.ip}:${next.port}`);
+                        queryClient.invalidateQueries({ queryKey: ["proxies"] });
+                      }}>
                         <Activity className="h-4 w-4" />
                       </Button>
                     </div>
