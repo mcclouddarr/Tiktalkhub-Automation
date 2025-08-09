@@ -153,7 +153,7 @@ export function Sidebar({ isOpen }: SidebarProps) {
     >
       <div className="flex items-center justify-center h-16 border-b border-border bg-gradient-primary">
         <div className="flex items-center gap-3">
-          <img src="/src/assets/tiktalkhub-logo.png" alt="Tiktalkhub" className="h-8 w-8" />
+          <img src="/tiktalkhub-logo.svg" alt="Tiktalkhub" className="h-8 w-8" />
           {isOpen && (
             <span className="text-xl font-bold text-primary-foreground">
               Tiktalkhub Automation
