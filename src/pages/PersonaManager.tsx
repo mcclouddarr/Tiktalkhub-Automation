@@ -79,9 +79,23 @@ export default function PersonaManager() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <Upload className="h-4 w-4 mr-2" />
-            Import Dataset
+          <Button asChild variant="outline">
+            <label className="inline-flex items-center cursor-pointer">
+              <Upload className="h-4 w-4 mr-2" />
+              <span>Import Dataset</span>
+              <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const text = await file.text();
+                const payload = JSON.parse(text);
+                const { supabase } = await import('@/lib/supabaseClient');
+                const { data, error } = await supabase.functions.invoke('uploadPersonas', {
+                  body: Array.isArray(payload) ? payload : payload.personas
+                });
+                if (error) alert(error.message);
+                else alert(`Uploaded ${data?.inserted || 0} personas`);
+              }} />
+            </label>
           </Button>
           <Button className="bg-gradient-primary hover:opacity-90" onClick={() => {
             // Example quick create; replace with proper dialog if needed
