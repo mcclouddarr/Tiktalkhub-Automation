@@ -1,0 +1,5 @@
+import("//build/config/ui.gni")
+
+group("phantom") {
+  public_deps = []
+}

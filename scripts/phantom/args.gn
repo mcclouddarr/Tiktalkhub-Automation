@@ -1,0 +1,26 @@
+is_official_build = true
+is_component_build = false
+symbol_level = 1
+is_debug = false
+blink_symbol_level = 0
+use_custom_libcxx = false
+enable_nacl = false
+enable_widevine = false
+treat_warnings_as_errors = false
+use_thin_lto = true
+
+# Keep devtools for Playwright
+enable_devtools = true
+
+# Branding (use Chromium brand to avoid closed assets)
+is_chrome_branded = false
+is_chromium_branded = true
+
+# Network service
+enable_network_service = true
+
+# Disable headless default
+use_headless = false
+
+# Disable crash reporter uploads
+chrome_pgo_phase = 0
