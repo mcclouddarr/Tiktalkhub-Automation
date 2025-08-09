@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchPersonas } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,72 +29,29 @@ import {
   Clock
 } from "lucide-react";
 
-const personas = [
-  {
-    id: 1,
-    name: "Emma_21_iOS",
-    age: 21,
-    device: "iPhone 15 Pro",
-    location: "New York, US",
-    browser: "Safari",
-    os: "iOS 17.2",
-    tags: ["Gen Z", "Fashion", "TikTok"],
-    status: "active",
-    lastUsed: "2 min ago",
-    sessions: 342
-  },
-  {
-    id: 2,
-    name: "Jake_19_Android",
-    age: 19,
-    device: "Galaxy S24",
-    location: "London, UK",
-    browser: "Chrome",
-    os: "Android 14",
-    tags: ["Gaming", "Tech"],
-    status: "idle",
-    lastUsed: "1 hour ago",
-    sessions: 128
-  },
-  {
-    id: 3,
-    name: "Sarah_25_iPad",
-    age: 25,
-    device: "iPad Pro",
-    location: "Toronto, CA",
-    browser: "Safari",
-    os: "iPadOS 17",
-    tags: ["Art", "Design"],
-    status: "running",
-    lastUsed: "Active now",
-    sessions: 567
-  },
-  {
-    id: 4,
-    name: "Alex_23_Desktop",
-    age: 23,
-    device: "Windows PC",
-    location: "Berlin, DE",
-    browser: "Firefox",
-    os: "Windows 11",
-    tags: ["Music", "Streaming"],
-    status: "paused",
-    lastUsed: "30 min ago",
-    sessions: 89
-  }
-];
-
 export default function PersonaManager() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterOS, setFilterOS] = useState("all");
-  const [selectedPersona, setSelectedPersona] = useState<typeof personas[0] | null>(null);
+  const [selectedPersona, setSelectedPersona] = useState<any | null>(null);
 
-  const filteredPersonas = personas.filter(persona => {
-    const matchesSearch = persona.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         persona.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesOS = filterOS === "all" || persona.os.toLowerCase().includes(filterOS.toLowerCase());
-    return matchesSearch && matchesOS;
+  const { data, isLoading } = useQuery({
+    queryKey: ["personas"],
+    queryFn: async () => {
+      const { data, error } = await fetchPersonas();
+      if (error) throw error;
+      return data || [];
+    },
   });
+
+  const personas = useMemo(() => data || [], [data]);
+
+  const filteredPersonas = useMemo(() => {
+    return (personas || []).filter((p: any) => {
+      const matchesSearch = (p.name || "").toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesOS = filterOS === "all" || (p.devices?.os || p.os || "").toLowerCase().includes(filterOS.toLowerCase());
+      return matchesSearch && matchesOS;
+    });
+  }, [personas, searchTerm, filterOS]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -138,7 +97,7 @@ export default function PersonaManager() {
             <div className="flex items-center gap-3">
               <Users className="h-8 w-8 text-primary" />
               <div>
-                <p className="text-2xl font-bold">128</p>
+                <p className="text-2xl font-bold">{isLoading ? "-" : personas.length}</p>
                 <p className="text-sm text-muted-foreground">Total Personas</p>
               </div>
             </div>
@@ -149,7 +108,7 @@ export default function PersonaManager() {
             <div className="flex items-center gap-3">
               <Smartphone className="h-8 w-8 text-success" />
               <div>
-                <p className="text-2xl font-bold">42</p>
+                <p className="text-2xl font-bold">-</p>
                 <p className="text-sm text-muted-foreground">Active Now</p>
               </div>
             </div>
@@ -160,7 +119,7 @@ export default function PersonaManager() {
             <div className="flex items-center gap-3">
               <Globe className="h-8 w-8 text-accent" />
               <div>
-                <p className="text-2xl font-bold">23</p>
+                <p className="text-2xl font-bold">-</p>
                 <p className="text-sm text-muted-foreground">Countries</p>
               </div>
             </div>
@@ -171,7 +130,7 @@ export default function PersonaManager() {
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-warning" />
               <div>
-                <p className="text-2xl font-bold">1,247</p>
+                <p className="text-2xl font-bold">-</p>
                 <p className="text-sm text-muted-foreground">Sessions Today</p>
               </div>
             </div>
@@ -189,7 +148,7 @@ export default function PersonaManager() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search personas by name, location..."
+                placeholder="Search personas by name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -216,25 +175,20 @@ export default function PersonaManager() {
                 <TableHead>Name</TableHead>
                 <TableHead>Age</TableHead>
                 <TableHead>Device</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Browser</TableHead>
                 <TableHead>Tags</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Sessions</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPersonas.map((persona) => (
+              {(filteredPersonas || []).map((persona: any) => (
                 <TableRow key={persona.id}>
                   <TableCell className="font-medium">{persona.name}</TableCell>
-                  <TableCell>{persona.age}</TableCell>
-                  <TableCell>{persona.device}</TableCell>
-                  <TableCell>{persona.location}</TableCell>
-                  <TableCell>{persona.browser}</TableCell>
+                  <TableCell>{persona.age ?? "-"}</TableCell>
+                  <TableCell>{persona.devices?.device_name ?? "-"}</TableCell>
                   <TableCell>
                     <div className="flex gap-1 flex-wrap">
-                      {persona.tags.map((tag) => (
+                      {(persona.tags || []).map((tag: string) => (
                         <Badge key={tag} variant="secondary" className="text-xs">
                           {tag}
                         </Badge>
@@ -242,11 +196,10 @@ export default function PersonaManager() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge className={getStatusColor(persona.status)}>
-                      {persona.status}
+                    <Badge className={getStatusColor(persona.status || "active")}>
+                      {persona.status || "active"}
                     </Badge>
                   </TableCell>
-                  <TableCell>{persona.sessions}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Dialog>
@@ -268,31 +221,24 @@ export default function PersonaManager() {
                               <div>
                                 <h4 className="font-semibold mb-3">Basic Information</h4>
                                 <div className="space-y-2 text-sm">
-                                  <p><span className="text-muted-foreground">Age:</span> {selectedPersona.age}</p>
-                                  <p><span className="text-muted-foreground">Location:</span> {selectedPersona.location}</p>
-                                  <p><span className="text-muted-foreground">Device:</span> {selectedPersona.device}</p>
-                                  <p><span className="text-muted-foreground">Browser:</span> {selectedPersona.browser}</p>
-                                  <p><span className="text-muted-foreground">OS:</span> {selectedPersona.os}</p>
+                                  <p><span className="text-muted-foreground">Age:</span> {selectedPersona.age ?? '-'}</p>
+                                  <p><span className="text-muted-foreground">Device:</span> {selectedPersona.devices?.device_name ?? '-'}</p>
+                                  <p><span className="text-muted-foreground">OS:</span> {selectedPersona.devices?.os ?? '-'}</p>
+                                  <p><span className="text-muted-foreground">Browser:</span> {selectedPersona.devices?.browser_type ?? '-'}</p>
                                 </div>
                               </div>
                               <div>
                                 <h4 className="font-semibold mb-3">Activity</h4>
                                 <div className="space-y-2 text-sm">
-                                  <p><span className="text-muted-foreground">Status:</span> {selectedPersona.status}</p>
-                                  <p><span className="text-muted-foreground">Last Used:</span> {selectedPersona.lastUsed}</p>
-                                  <p><span className="text-muted-foreground">Total Sessions:</span> {selectedPersona.sessions}</p>
-                                  <p><span className="text-muted-foreground">Success Rate:</span> 94.2%</p>
+                                  <p><span className="text-muted-foreground">Status:</span> {selectedPersona.status ?? 'active'}</p>
+                                  <p><span className="text-muted-foreground">Total Sessions:</span> -</p>
                                 </div>
                               </div>
                               <div className="col-span-2">
                                 <h4 className="font-semibold mb-3">Backstory & Behavior</h4>
                                 <p className="text-sm text-muted-foreground mb-3">
-                                  This persona represents a typical {selectedPersona.age}-year-old user interested in {selectedPersona.tags.join(", ").toLowerCase()}. 
-                                  Primarily uses {selectedPersona.device} for social media browsing and content consumption.
+                                  {selectedPersona.backstory || '—'}
                                 </p>
-                                <div className="bg-muted/50 p-3 rounded-lg">
-                                  <p className="text-xs text-muted-foreground">Session Cookies: 247 active • User-Agent: Randomized • Fingerprint: Unique</p>
-                                </div>
                               </div>
                             </div>
                           )}

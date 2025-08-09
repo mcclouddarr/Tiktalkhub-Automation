@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchDevices } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,65 +37,6 @@ import {
   Eye
 } from "lucide-react";
 
-const deviceProfiles = [
-  {
-    id: "dev_001",
-    name: "iPhone 16 Pro",
-    type: "mobile",
-    os: "iOS 18.0",
-    browser: "Safari",
-    screen: "1206x2622",
-    userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)...",
-    webgl: "Apple A18 Pro GPU",
-    canvas: "fp_a1b2c3d4",
-    status: "active",
-    personas: ["Emma_21_iOS", "Sarah_25_iPad"],
-    lastUsed: "2 hours ago"
-  },
-  {
-    id: "dev_002", 
-    name: "Galaxy S24 Ultra",
-    type: "mobile",
-    os: "Android 14",
-    browser: "Chrome",
-    screen: "1440x3120",
-    userAgent: "Mozilla/5.0 (Linux; Android 14; SM-S928U)...",
-    webgl: "Adreno 750",
-    canvas: "fp_e5f6g7h8",
-    status: "active",
-    personas: ["Jake_19_Android"],
-    lastUsed: "1 hour ago"
-  },
-  {
-    id: "dev_003",
-    name: "MacBook Pro M3",
-    type: "desktop",
-    os: "macOS 14.0",
-    browser: "Chrome",
-    screen: "3024x1964",
-    userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)...",
-    webgl: "Apple M3 Pro",
-    canvas: "fp_i9j0k1l2",
-    status: "inactive",
-    personas: ["Alex_23_Desktop"],
-    lastUsed: "1 day ago"
-  },
-  {
-    id: "dev_004",
-    name: "Pixel 9 Pro",
-    type: "mobile",
-    os: "Android 15",
-    browser: "Chrome",
-    screen: "1344x2992",
-    userAgent: "Mozilla/5.0 (Linux; Android 15; Pixel 9 Pro)...",
-    webgl: "Mali-G715 MC7",
-    canvas: "fp_m3n4o5p6",
-    status: "flagged",
-    personas: [],
-    lastUsed: "3 days ago"
-  }
-];
-
 const deviceTemplates = [
   { name: "iPhone 16 Pro", type: "mobile", os: "iOS" },
   { name: "iPhone 16", type: "mobile", os: "iOS" },
@@ -110,6 +53,17 @@ export default function DeviceProfiles() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [filter, setFilter] = useState("all");
 
+  const { data } = useQuery({
+    queryKey: ["devices"],
+    queryFn: async () => {
+      const { data, error } = await fetchDevices();
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const deviceProfiles = useMemo(() => data || [], [data]);
+
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "mobile":
@@ -124,7 +78,7 @@ export default function DeviceProfiles() {
   };
 
   const getBrowserIcon = (browser: string) => {
-    switch (browser.toLowerCase()) {
+    switch ((browser || "").toLowerCase()) {
       case "chrome":
         return <Chrome className="h-4 w-4" />;
       case "firefox":
@@ -149,9 +103,9 @@ export default function DeviceProfiles() {
     }
   };
 
-  const filteredProfiles = deviceProfiles.filter(profile => {
+  const filteredProfiles = deviceProfiles.filter((profile: any) => {
     if (filter === "all") return true;
-    return profile.type === filter;
+    return (profile.type || profile.browser_type)?.includes(filter) || profile.type === filter;
   });
 
   return (
@@ -308,7 +262,7 @@ export default function DeviceProfiles() {
             <div className="flex items-center gap-3">
               <Smartphone className="h-8 w-8 text-primary" />
               <div>
-                <p className="text-2xl font-bold">12</p>
+                <p className="text-2xl font-bold">{deviceProfiles.filter((d: any) => (d.browser_type || '').toLowerCase().includes('mobile')).length}</p>
                 <p className="text-sm text-muted-foreground">Mobile Profiles</p>
               </div>
             </div>
@@ -319,7 +273,7 @@ export default function DeviceProfiles() {
             <div className="flex items-center gap-3">
               <Monitor className="h-8 w-8 text-accent" />
               <div>
-                <p className="text-2xl font-bold">5</p>
+                <p className="text-2xl font-bold">{deviceProfiles.filter((d: any) => (d.browser_type || '').toLowerCase().includes('desktop')).length}</p>
                 <p className="text-sm text-muted-foreground">Desktop Profiles</p>
               </div>
             </div>
@@ -330,7 +284,7 @@ export default function DeviceProfiles() {
             <div className="flex items-center gap-3">
               <Tablet className="h-8 w-8 text-success" />
               <div>
-                <p className="text-2xl font-bold">3</p>
+                <p className="text-2xl font-bold">{deviceProfiles.filter((d: any) => (d.browser_type || '').toLowerCase().includes('tablet')).length}</p>
                 <p className="text-sm text-muted-foreground">Tablet Profiles</p>
               </div>
             </div>
@@ -341,7 +295,7 @@ export default function DeviceProfiles() {
             <div className="flex items-center gap-3">
               <Eye className="h-8 w-8 text-warning" />
               <div>
-                <p className="text-2xl font-bold">1</p>
+                <p className="text-2xl font-bold">{deviceProfiles.filter((d: any) => (d.status || '').toLowerCase() === 'flagged').length}</p>
                 <p className="text-sm text-muted-foreground">Flagged</p>
               </div>
             </div>
@@ -381,20 +335,18 @@ export default function DeviceProfiles() {
                 <TableHead>Type</TableHead>
                 <TableHead>OS & Browser</TableHead>
                 <TableHead>Screen</TableHead>
-                <TableHead>Assigned Personas</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Last Used</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredProfiles.map((profile) => (
+              {filteredProfiles.map((profile: any) => (
                 <TableRow key={profile.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      {getTypeIcon(profile.type)}
+                      {getTypeIcon((profile.browser_type || '').includes('mobile') ? 'mobile' : (profile.browser_type || '').includes('desktop') ? 'desktop' : 'tablet')}
                       <div>
-                        <div className="font-medium">{profile.name}</div>
+                        <div className="font-medium">{profile.device_name}</div>
                         <div className="text-sm text-muted-foreground font-mono">
                           {profile.id}
                         </div>
@@ -402,37 +354,22 @@ export default function DeviceProfiles() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{profile.type}</Badge>
+                    <Badge variant="secondary">{profile.browser_type || '-'}</Badge>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {getBrowserIcon(profile.browser)}
+                      {getBrowserIcon(profile.browser_type || '')}
                       <div>
-                        <div className="text-sm font-medium">{profile.os}</div>
-                        <div className="text-xs text-muted-foreground">{profile.browser}</div>
+                        <div className="text-sm font-medium">{profile.os || '-'}</div>
+                        <div className="text-xs text-muted-foreground">{profile.platform || '-'}</div>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{profile.screen}</TableCell>
+                  <TableCell className="font-mono text-sm">{profile.viewport || '-'}</TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1">
-                      {profile.personas.map((persona) => (
-                        <Badge key={persona} variant="outline" className="text-xs">
-                          {persona.split('_')[0]}
-                        </Badge>
-                      ))}
-                      {profile.personas.length === 0 && (
-                        <span className="text-xs text-muted-foreground">None</span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(profile.status)}>
-                      {profile.status}
+                    <Badge className={getStatusColor(profile.status || 'active')}>
+                      {profile.status || 'active'}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {profile.lastUsed}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
