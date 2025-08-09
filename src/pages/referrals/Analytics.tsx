@@ -1,7 +1,10 @@
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { createClient } from "@supabase/supabase-js";
+import { Link } from "react-router-dom";
 import {
   TrendingUp,
   TrendingDown,
@@ -15,84 +18,50 @@ import {
   PieChart
 } from "lucide-react";
 
-const analyticsData = {
-  overview: {
-    totalClicks: 2847,
-    totalConversions: 342,
-    conversionRate: 12.0,
-    bounceRate: 23.5,
-    avgSessionDepth: 2.8,
-    uniqueDevices: 156
-  },
-  platforms: [
-    {
-      name: "TikTok Ads",
-      clicks: 1247,
-      conversions: 156,
-      rate: 12.5,
-      bounce: 18.2,
-      trend: "up"
-    },
-    {
-      name: "Instagram Ads", 
-      clicks: 892,
-      conversions: 98,
-      rate: 11.0,
-      bounce: 22.1,
-      trend: "up"
-    },
-    {
-      name: "Facebook Ads",
-      clicks: 456,
-      conversions: 52,
-      rate: 11.4,
-      bounce: 28.9,
-      trend: "down"
-    },
-    {
-      name: "YouTube Ads",
-      clicks: 252,
-      conversions: 36,
-      rate: 14.3,
-      bounce: 15.7,
-      trend: "up"
-    }
-  ],
-  devices: [
-    { type: "iPhone", sessions: 1234, conversions: 168, rate: 13.6 },
-    { type: "Android", sessions: 987, conversions: 98, rate: 9.9 },
-    { type: "Desktop", sessions: 456, conversions: 52, rate: 11.4 },
-    { type: "iPad", sessions: 170, conversions: 24, rate: 14.1 }
-  ],
-  referralPaths: [
-    {
-      id: "path_001",
-      origin: "TikTok Ad → Landing Page",
-      steps: 4,
-      completions: 156,
-      dropoffRate: 12.5,
-      avgTime: "3m 24s"
-    },
-    {
-      id: "path_002", 
-      origin: "Instagram Story → Signup",
-      steps: 3,
-      completions: 98,
-      dropoffRate: 18.7,
-      avgTime: "2m 45s"
-    },
-    {
-      id: "path_003",
-      origin: "WhatsApp Link → Form",
-      steps: 5,
-      completions: 67,
-      dropoffRate: 22.1,
-      avgTime: "4m 12s"
-    }
-  ]
-};
+const supabase = createClient(import.meta.env.VITE_SUPABASE_URL!, import.meta.env.VITE_SUPABASE_ANON_KEY!);
 
 export default function Analytics() {
+  const [period, setPeriod] = useState<'24h'|'7d'|'30d'|'90d'>('7d')
+  const [snapshots, setSnapshots] = useState<any[]>([])
+
+  useEffect(() => { (async () => {
+    const now = new Date()
+    const map: Record<string, number> = { '24h': 1, '7d': 7, '30d': 30, '90d': 90 }
+    const days = map[period]
+    const start = new Date(now.getTime() - days*24*60*60*1000).toISOString()
+    const { data } = await supabase
+      .from('referral_analytics_snapshots')
+      .select('*')
+      .gte('created_at', start)
+      .order('created_at', { ascending: false })
+      .limit(500)
+    setSnapshots(data || [])
+  })() }, [period])
+
+  const overview = useMemo(() => {
+    const totalClicks = snapshots.reduce((a, s) => a + (s.clicks||0), 0)
+    const totalConversions = snapshots.reduce((a, s) => a + (s.conversions||0), 0)
+    const conversionRate = totalClicks ? Math.round((totalConversions/totalClicks)*1000)/10 : 0
+    const bounceRate = Math.round((snapshots.reduce((a,s)=> a + (s.bounce_rate || 0), 0) / (snapshots.length||1)) * 10)/10
+    const uniqueDevices = snapshots.reduce((acc, s) => acc.add(s.device_fingerprint || 'unknown'), new Set()).size
+    const avgSessionDepth = Math.round((snapshots.reduce((a,s)=> a + (s.avg_depth||0), 0) / (snapshots.length||1)) * 10)/10
+    return { totalClicks, totalConversions, conversionRate, bounceRate, uniqueDevices, avgSessionDepth }
+  }, [snapshots])
+
+  const byPlatform = useMemo(() => {
+    const m = new Map<string, { clicks: number; conversions: number }>()
+    for (const s of snapshots){
+      const k = s.traffic_source || s.platform || 'unknown'
+      const v = m.get(k) || { clicks: 0, conversions: 0 }
+      v.clicks += (s.clicks||0)
+      v.conversions += (s.conversions||0)
+      m.set(k, v)
+    }
+    return Array.from(m.entries()).map(([name, v]) => ({ name, clicks: v.clicks, conversions: v.conversions, rate: v.clicks ? Math.round((v.conversions/v.clicks)*1000)/10 : 0 }))
+  }, [snapshots])
+
+  const recentPaths = useMemo(() => (snapshots.slice(0, 10)), [snapshots])
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -104,8 +73,8 @@ export default function Analytics() {
             Track performance metrics and conversion patterns
           </p>
         </div>
-        <div className="flex gap-3">
-          <Select defaultValue="7d">
+        <div className="flex gap-3 items-center">
+          <Select value={period} onValueChange={(v:any)=> setPeriod(v)}>
             <SelectTrigger className="w-[140px]">
               <SelectValue />
             </SelectTrigger>
@@ -118,7 +87,7 @@ export default function Analytics() {
           </Select>
           <Button variant="outline">
             <Download className="h-4 w-4 mr-2" />
-            Export Report
+            Export
           </Button>
         </div>
       </div>
@@ -130,7 +99,7 @@ export default function Analytics() {
             <div className="flex items-center gap-3">
               <MousePointer className="h-8 w-8 text-primary" />
               <div>
-                <p className="text-2xl font-bold">{analyticsData.overview.totalClicks.toLocaleString()}</p>
+                <p className="text-2xl font-bold">{overview.totalClicks.toLocaleString()}</p>
                 <p className="text-sm text-muted-foreground">Total Clicks</p>
               </div>
             </div>
@@ -141,7 +110,7 @@ export default function Analytics() {
             <div className="flex items-center gap-3">
               <Target className="h-8 w-8 text-success" />
               <div>
-                <p className="text-2xl font-bold">{analyticsData.overview.totalConversions}</p>
+                <p className="text-2xl font-bold">{overview.totalConversions}</p>
                 <p className="text-sm text-muted-foreground">Conversions</p>
               </div>
             </div>
@@ -152,7 +121,7 @@ export default function Analytics() {
             <div className="flex items-center gap-3">
               <TrendingUp className="h-8 w-8 text-accent" />
               <div>
-                <p className="text-2xl font-bold">{analyticsData.overview.conversionRate}%</p>
+                <p className="text-2xl font-bold">{overview.conversionRate}%</p>
                 <p className="text-sm text-muted-foreground">Conv. Rate</p>
               </div>
             </div>
@@ -163,7 +132,7 @@ export default function Analytics() {
             <div className="flex items-center gap-3">
               <TrendingDown className="h-8 w-8 text-warning" />
               <div>
-                <p className="text-2xl font-bold">{analyticsData.overview.bounceRate}%</p>
+                <p className="text-2xl font-bold">{overview.bounceRate}%</p>
                 <p className="text-sm text-muted-foreground">Bounce Rate</p>
               </div>
             </div>
@@ -174,7 +143,7 @@ export default function Analytics() {
             <div className="flex items-center gap-3">
               <BarChart3 className="h-8 w-8 text-purple-500" />
               <div>
-                <p className="text-2xl font-bold">{analyticsData.overview.avgSessionDepth}</p>
+                <p className="text-2xl font-bold">{overview.avgSessionDepth}</p>
                 <p className="text-sm text-muted-foreground">Avg Depth</p>
               </div>
             </div>
@@ -185,7 +154,7 @@ export default function Analytics() {
             <div className="flex items-center gap-3">
               <Users className="h-8 w-8 text-cyan-500" />
               <div>
-                <p className="text-2xl font-bold">{analyticsData.overview.uniqueDevices}</p>
+                <p className="text-2xl font-bold">{overview.uniqueDevices}</p>
                 <p className="text-sm text-muted-foreground">Unique Devices</p>
               </div>
             </div>
@@ -204,16 +173,11 @@ export default function Analytics() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {analyticsData.platforms.map((platform) => (
+              {byPlatform.map((platform) => (
                 <div key={platform.name} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <div className="font-medium">{platform.name}</div>
-                      {platform.trend === "up" ? (
-                        <TrendingUp className="h-4 w-4 text-success" />
-                      ) : (
-                        <TrendingDown className="h-4 w-4 text-error" />
-                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -228,7 +192,7 @@ export default function Analytics() {
           </CardContent>
         </Card>
 
-        {/* Device Performance */}
+        {/* Device Performance (simplified from snapshots) */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -237,75 +201,45 @@ export default function Analytics() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {analyticsData.devices.map((device) => (
-                <div key={device.type} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="font-medium">{device.type}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-medium">{device.sessions.toLocaleString()} sessions</div>
-                    <div className="text-sm text-muted-foreground">
-                      {device.conversions} conv. • {device.rate}% rate
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div className="space-y-2 text-sm text-muted-foreground">
+              Data sourced from snapshots per device fingerprint (unique count above).
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Referral Tree */}
+      {/* Recent Paths from snapshots */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
-            Referral Tree (Visual Session Path)
+            Recent Referral Paths
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {analyticsData.referralPaths.map((path, index) => (
-              <div key={path.id} className="border border-border rounded-lg p-4">
+            {recentPaths.map((s: any, index: number) => (
+              <div key={`${s.id}-${index}`} className="border border-border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <Badge variant="secondary">Path {index + 1}</Badge>
-                    <span className="font-medium">{path.origin}</span>
+                    <Badge variant="secondary">{(s.traffic_source || 'unknown').toUpperCase()}</Badge>
+                    <span className="font-medium">{s.campaign_id || '—'}</span>
                   </div>
                   <div className="flex gap-4 text-sm text-muted-foreground">
-                    <span>{path.steps} steps</span>
-                    <span>{path.avgTime} avg time</span>
+                    <span>{s.steps || s.path_steps || '-'} steps</span>
+                    <span>{s.avg_time || s.avg_duration || '-'} avg time</span>
                   </div>
                 </div>
-                
                 <div className="flex items-center gap-2 mb-3">
                   <div className="flex-1 bg-muted rounded-full h-2">
-                    <div 
-                      className="bg-primary h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${100 - path.dropoffRate}%` }}
-                    />
+                    <div className="bg-primary h-2 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, Math.max(0, 100 - (s.dropoff_rate || 0))) }%` }} />
                   </div>
-                  <span className="text-sm font-medium">{path.completions} completions</span>
+                  <span className="text-sm font-medium">{(s.conversions || 0)} conversions</span>
                 </div>
-
-                <div className="grid grid-cols-4 gap-2 text-xs">
-                  <div className="text-center p-2 bg-primary/10 rounded">
-                    <div className="font-medium">Start</div>
-                    <div className="text-muted-foreground">100%</div>
-                  </div>
-                  <div className="text-center p-2 bg-primary/20 rounded">
-                    <div className="font-medium">Click</div>
-                    <div className="text-muted-foreground">85%</div>
-                  </div>
-                  <div className="text-center p-2 bg-primary/30 rounded">
-                    <div className="font-medium">Form</div>
-                    <div className="text-muted-foreground">68%</div>
-                  </div>
-                  <div className="text-center p-2 bg-primary/40 rounded">
-                    <div className="font-medium">Convert</div>
-                    <div className="text-muted-foreground">{Math.round(100 - path.dropoffRate)}%</div>
-                  </div>
+                <div className="flex gap-2">
+                  {s.run_id ? (
+                    <Link to={`/runs/${s.run_id}`} className="underline text-sm">Replay</Link>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -313,42 +247,17 @@ export default function Analytics() {
         </CardContent>
       </Card>
 
-      {/* Recent Activity */}
+      {/* Recent Activity (optional) */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Recent Referral Activity
+            Recent Snapshot Events
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {[
-              { time: "2 min ago", event: "New conversion from TikTok campaign", persona: "Emma_21_iOS", value: "$45" },
-              { time: "5 min ago", event: "High bounce rate detected on Instagram path", persona: "Jake_19_Android", value: "Alert" },
-              { time: "12 min ago", event: "Campaign reached 1000 clicks milestone", persona: "Multiple", value: "Milestone" },
-              { time: "18 min ago", event: "Device fingerprint flagged as suspicious", persona: "Sarah_25_iPad", value: "Warning" },
-              { time: "25 min ago", event: "New referral path discovered", persona: "Alex_23_Desktop", value: "Insight" }
-            ].map((activity, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-primary rounded-full" />
-                  <div>
-                    <div className="font-medium">{activity.event}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {activity.persona} • {activity.time}
-                    </div>
-                  </div>
-                </div>
-                <Badge variant={
-                  activity.value.startsWith('$') ? 'default' :
-                  activity.value === 'Alert' || activity.value === 'Warning' ? 'destructive' :
-                  'secondary'
-                }>
-                  {activity.value}
-                </Badge>
-              </div>
-            ))}
+          <div className="space-y-2 text-sm text-muted-foreground">
+            Loaded {snapshots.length} snapshot rows for period {period}.
           </div>
         </CardContent>
       </Card>
