@@ -25,52 +25,74 @@ function makeCookieBlob(domain) {
   };
 }
 
+async function fetchPersonasMissingCookies(page = 0, pageSize = 1000) {
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+  const { data, error } = await supabase
+    .from('personas')
+    .select('id, cookie_id')
+    .is('cookie_id', null)
+    .range(from, to);
+  if (error) throw error;
+  return data || [];
+}
+
 async function main() {
-  // fetch personas list
-  const { data: personas, error } = await supabase.from('personas').select('id');
-  if (error) { console.error(error.message); process.exit(1); }
+  // Page through all personas missing cookies
+  const pageSize = 1000;
+  let page = 0;
+  let totalCookies = 0;
+  let totalSessions = 0;
 
-  // generate one cookie + 0-2 sessions per persona
-  const cookieRows = personas.map(p => ({
-    persona_id: p.id,
-    cookie_blob: makeCookieBlob(pick(['tiktok.com','youtube.com','google.com','reddit.com'])),
-    expires_at: new Date(Date.now()+86400*1000*randInt(7,90)).toISOString()
-  }));
+  while (true) {
+    const batch = await fetchPersonasMissingCookies(page, pageSize);
+    if (!batch.length) break;
 
-  console.log(`Inserting ${cookieRows.length} cookies...`);
-  for (const b of chunk(cookieRows, 500)) {
-    const { data, error } = await supabase.from('cookies').insert(b).select('id, persona_id');
-    if (error) { console.error(error.message); process.exit(1); }
+    const cookieRows = batch.map(p => ({
+      persona_id: p.id,
+      cookie_blob: makeCookieBlob(pick(['tiktok.com','youtube.com','google.com','reddit.com'])),
+      expires_at: new Date(Date.now()+86400*1000*randInt(7,90)).toISOString()
+    }));
+
+    console.log(`Inserting ${cookieRows.length} cookies (page ${page})...`);
+    const { data: inserted, error: insErr } = await supabase.from('cookies').insert(cookieRows).select('id, persona_id');
+    if (insErr) { console.error(insErr.message); process.exit(1); }
+
     // link cookie_id in personas
-    for (const row of data) {
-      await supabase.from('personas').update({ cookie_id: row.id }).eq('id', row.persona_id);
+    for (const row of inserted) {
+      const { error: upErr } = await supabase.from('personas').update({ cookie_id: row.id }).eq('id', row.persona_id);
+      if (upErr) { console.error(upErr.message); process.exit(1); }
     }
+
+    totalCookies += cookieRows.length;
+
+    // Optional: create 0-2 sessions per persona in this page
+    const sessionRows = [];
+    for (const p of batch) {
+      const num = randInt(0,2);
+      for (let i=0;i<num;i++) {
+        sessionRows.push({
+          persona_id: p.id,
+          device_id: null,
+          start_time: new Date(Date.now()-randInt(0,7)*86400000).toISOString(),
+          end_time: null,
+          session_type: pick(['manual','Vanta-controlled']),
+          proxy_id: null,
+          activity_log: { target: pick(['tiktok.com','youtube.com','instagram.com','news.com']), success: pick([true,true,true,false]) },
+          status: pick(['running','completed','failed'])
+        });
+      }
+    }
+    if (sessionRows.length) {
+      const { error: sessErr } = await supabase.from('sessions').insert(sessionRows, { returning: 'minimal' });
+      if (sessErr) { console.error(sessErr.message); process.exit(1); }
+      totalSessions += sessionRows.length;
+    }
+
+    page++;
   }
 
-  // sessions
-  const sessionRows = [];
-  for (const p of personas) {
-    const num = randInt(0,2);
-    for (let i=0;i<num;i++) {
-      sessionRows.push({
-        persona_id: p.id,
-        device_id: null,
-        start_time: new Date(Date.now()-randInt(0,7)*86400000).toISOString(),
-        end_time: null,
-        session_type: pick(['manual','Vanta-controlled']),
-        proxy_id: null,
-        activity_log: { target: pick(['tiktok.com','youtube.com','instagram.com','news.com']), success: pick([true,true,true,false]) },
-        status: pick(['running','completed','failed'])
-      });
-    }
-  }
-  console.log(`Inserting ${sessionRows.length} sessions...`);
-  for (const b of chunk(sessionRows, 500)) {
-    const { error } = await supabase.from('sessions').insert(b, { returning: 'minimal' });
-    if (error) { console.error(error.message); process.exit(1); }
-  }
-
-  console.log('Cookie linking and session generation complete.');
+  console.log(`Cookie linking complete. Cookies inserted: ${totalCookies}. Sessions inserted: ${totalSessions}.`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
