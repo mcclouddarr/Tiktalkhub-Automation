@@ -6,6 +6,9 @@ import path from 'path'
 
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const PHANTOM_EXECUTABLE = process.env.PHANTOM_EXECUTABLE || ''
+const PHANTOM_EXTRA_ARGS = (process.env.PHANTOM_EXTRA_ARGS || '').split(' ').filter(Boolean)
+
 const supabase = SUPABASE_URL && SERVICE_KEY ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } }) : null
 
 async function log(runId, level, message, data){
@@ -33,6 +36,28 @@ function buildInitScript(fp){
   `
 }
 
+function buildChromiumArgs(launchConfig){
+  const args = [
+    '--disable-features=Translate,AutomationControlled',
+    '--disable-blink-features=AutomationControlled',
+    '--no-default-browser-check',
+    '--no-first-run',
+    '--disable-background-networking',
+    '--disable-sync',
+  ]
+  const ua = launchConfig?.headers?.['User-Agent'] || launchConfig?.userAgent
+  if (ua) args.push(`--user-agent=${ua}`)
+  const al = launchConfig?.headers?.['Accept-Language']
+  if (al) args.push(`--lang=${al.split(',')[0]}`)
+  const vp = Array.isArray(launchConfig?.viewport) ? launchConfig.viewport : null
+  if (vp) args.push(`--window-size=${vp[0]},${vp[1]}`)
+  if (launchConfig?.persistProfilePath) args.push(`--user-data-dir=${launchConfig.persistProfilePath}`)
+  // Persona/task ids (future Phantom fork can read these)
+  if (process.env.PERSONA_ID) args.push(`--persona_id=${process.env.PERSONA_ID}`)
+  if (process.env.TASK_ID) args.push(`--task_id=${process.env.TASK_ID}`)
+  return args.concat(PHANTOM_EXTRA_ARGS)
+}
+
 async function applyCookies(context, preCookies, target){
   if (!Array.isArray(preCookies) || preCookies.length === 0) return
   await context.addCookies(preCookies.map(c => ({ ...c, url: target.startsWith('http') ? target : `https://${c.domain}` })))
@@ -56,7 +81,14 @@ export async function launchSession({ run_id, launchConfig, cookies, target, ste
   fs.mkdirSync(outDir, { recursive: true })
 
   const proxy = proxyFromLaunchConfig(launchConfig)
-  const browser = await chromium.launch({ headless: !!launchConfig.headless, proxy })
+  const launchOptions = {
+    headless: !!launchConfig.headless,
+    proxy,
+    args: buildChromiumArgs(launchConfig),
+  }
+  if (PHANTOM_EXECUTABLE) launchOptions.executablePath = PHANTOM_EXECUTABLE
+
+  const browser = await chromium.launch(launchOptions)
   const context = await browser.newContext({
     userAgent: launchConfig.headers?.['User-Agent'] || launchConfig.userAgent || undefined,
     viewport: Array.isArray(launchConfig.viewport) ? { width: launchConfig.viewport[0], height: launchConfig.viewport[1] } : undefined,
