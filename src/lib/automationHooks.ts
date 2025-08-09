@@ -61,6 +61,8 @@ export async function pickHealthyProxy(countryHint?: string) {
   } as ProxyConfig;
 }
 
+import { getAutomationDefaults } from "./automationDefaults";
+
 export async function buildLaunchForPersona(personaId: string, opts?: { headless?: boolean; persistPath?: string | null; countryHint?: string | null }) {
   const device = await pickDeviceForPersona(personaId);
   const proxy = await pickHealthyProxy(opts?.countryHint || undefined);
@@ -84,7 +86,8 @@ export async function buildLaunchForPersona(personaId: string, opts?: { headless
       screen: device.fingerprint_config?.screen,
     },
   };
-  return buildLaunchConfig(deviceShell, { proxy, headless: opts?.headless ?? false, persistPath: opts?.persistPath || null });
+  const defaults = getAutomationDefaults();
+  return buildLaunchConfig(deviceShell, { proxy, headless: opts?.headless ?? defaults.headless, persistPath: opts?.persistPath ?? defaults.persistPath });
 }
 
 export async function getPersonaCookieBlob(personaId: string) {

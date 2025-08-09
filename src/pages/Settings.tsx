@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Settings as SettingsIcon, Key, Globe, Monitor, FileText, Download, Trash2 } from "lucide-react";
+import { getAutomationDefaults, setAutomationDefaults } from "@/lib/automationDefaults";
 
 interface LogEntry {
   id: string;
@@ -48,6 +49,27 @@ export default function Settings() {
   const [autoBackup, setAutoBackup] = useState(true);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [logs, setLogs] = useState<LogEntry[]>(mockLogs);
+  const [headless, setHeadless] = useState(false);
+  const [persistPath, setPersistPath] = useState("");
+  const [countryHint, setCountryHint] = useState("");
+  const [devicePreference, setDevicePreference] = useState<'mobile' | 'desktop' | 'any'>("any");
+
+  useEffect(() => {
+    const d = getAutomationDefaults();
+    setHeadless(d.headless);
+    setPersistPath(d.persistPath || "");
+    setCountryHint(d.countryHint || "");
+    setDevicePreference(d.devicePreference);
+  }, []);
+
+  function saveDefaults() {
+    setAutomationDefaults({
+      headless,
+      persistPath: persistPath || null,
+      countryHint: countryHint || null,
+      devicePreference,
+    });
+  }
 
   const getLevelBadge = (level: string) => {
     switch (level) {
@@ -341,6 +363,42 @@ export default function Settings() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Automation Defaults</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="headless">Headless</Label>
+            <Switch id="headless" checked={headless} onCheckedChange={(v) => setHeadless(!!v)} />
+          </div>
+          <div>
+            <Label htmlFor="persistPath">Persist Path</Label>
+            <Input id="persistPath" value={persistPath} onChange={(e) => setPersistPath(e.target.value)} placeholder="/tmp/profiles" />
+          </div>
+          <div>
+            <Label htmlFor="countryHint">Default Country Hint</Label>
+            <Input id="countryHint" value={countryHint} onChange={(e) => setCountryHint(e.target.value)} placeholder="United States" />
+          </div>
+          <div>
+            <Label>Device Preference</Label>
+            <Select value={devicePreference} onValueChange={(v: any) => setDevicePreference(v)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Any</SelectItem>
+                <SelectItem value="mobile">Mobile</SelectItem>
+                <SelectItem value="desktop">Desktop</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="text-right">
+            <button className="px-4 py-2 rounded bg-primary text-primary-foreground" onClick={saveDefaults}>Save</button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
