@@ -114,6 +114,18 @@ function sampleSources(){
   return s.slice(0, randInt(2, s.length))
 }
 
+async function insertWithRetry(slice, attempt=1){
+  try {
+    const { error } = await supabase.from('behavior_datasets').insert(slice, { returning: 'minimal' })
+    if (error) throw error
+  } catch (e) {
+    if (attempt >= 5) { console.error('Insert failed after retries:', e.message || e); process.exit(1) }
+    const backoff = attempt * 500
+    await new Promise(r => setTimeout(r, backoff))
+    return insertWithRetry(slice, attempt+1)
+  }
+}
+
 async function main(){
   const { data: personas, error } = await supabase.from('personas').select('id').limit(5000)
   if (error) { console.error(error.message); process.exit(1) }
@@ -133,11 +145,11 @@ async function main(){
   }))
 
   console.log(`Inserting ${rows.length} behavior datasets...`)
-  for (let i=0;i<rows.length;i+=500){
-    const slice = rows.slice(i,i+500)
-    const { error: insErr } = await supabase.from('behavior_datasets').insert(slice, { returning: 'minimal' })
-    if (insErr) { console.error(insErr.message); process.exit(1) }
-    console.log(`  ${Math.min(i+500, rows.length)}/${rows.length}`)
+  const chunkSize = 100
+  for (let i=0;i<rows.length;i+=chunkSize){
+    const slice = rows.slice(i,i+chunkSize)
+    await insertWithRetry(slice)
+    console.log(`  ${Math.min(i+chunkSize, rows.length)}/${rows.length}`)
   }
   console.log('Behavior dataset generation complete.')
 }
