@@ -32,6 +32,7 @@ function buildInitScript(fp){
     Object.defineProperty(navigator, 'languages', { get: () => ${languages} });
     Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => ${hw} });
     Object.defineProperty(navigator, 'deviceMemory', { get: () => ${mem} });
+    try { const d=Object.getOwnPropertyDescriptor(Navigator.prototype,'webdriver'); if (d && d.configurable) { Object.defineProperty(Navigator.prototype,'webdriver',{ get: () => false }); } } catch(e) {}
     try { Intl.DateTimeFormat = class extends Intl.DateTimeFormat { resolvedOptions(){ return { timeZone: '${tz}' } } } } catch(e) {}
   `
 }
