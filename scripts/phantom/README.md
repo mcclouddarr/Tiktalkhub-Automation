@@ -10,6 +10,32 @@ Important: Chromium builds are large and slow. Do this on a dedicated Linux/macO
 ## 0) High-level options
 - Fastest path (recommended now): Use stock Chromium via Playwright and our runner (already working). Set `PHANTOM_EXECUTABLE` later when you have a custom build.
 - Full fork: Build Chromium locally with Phantom branding and hooks. Follow steps below.
+- Install prebuilt binary: If you have a packaged Phantom binary (smaller download), drop it in and point the runner to it (see section 0a).
+
+## 0a) Install a prebuilt Phantom binary (packaged)
+If you obtained a packaged Phantom build (tar.gz/zip/msi/dmg):
+
+- Manual install
+  - Place the binary somewhere stable, e.g. `~/phantom/bin/phantom` (Linux), `C:\Phantom\phantom.exe` (Windows), or `Phantom.app` (macOS bundle).
+  - Set environment for the runner:
+    ```bash
+    export PHANTOM_EXECUTABLE="/absolute/path/to/phantom"  # or chrome.exe / .app executable
+    export PHANTOM_EXTRA_ARGS="--remote-debugging-port=9222"
+    node scripts/runner/server.js
+    ```
+  - Profiles and customs are preserved because the runner uses a separate user-data-dir per persona (persistProfilePath).
+
+- Using helper scripts (Linux/macOS)
+  - Install: `bash scripts/phantom/install.sh <DOWNLOAD_URL> [INSTALL_DIR]`
+  - Update:  `bash scripts/phantom/update.sh <DOWNLOAD_URL> [INSTALL_DIR]`
+  - These scripts:
+    - Download and extract the archive
+    - Maintain a symlink `phantom-current` in the install dir
+    - Never touch your profile folders; only the binary is swapped
+
+Notes on preserving customs:
+- Your persona profiles live under a user-data-dir per persona (persistProfilePath) separate from the binary. Updates do not delete profiles.
+- Fingerprint, proxy, cookie bindings are passed at launch by the runner; updates don’t overwrite that logic.
 
 ## 1) Prerequisites
 - Git, Python3, clang toolchains per platform
