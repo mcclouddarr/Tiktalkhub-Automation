@@ -17,6 +17,7 @@ import AITrainer from "./pages/AITrainer";
 import ScriptHub from "./pages/ScriptHub";
 import CampaignBuilder from "./pages/referrals/CampaignBuilder";
 import TaskEngine from "./pages/referrals/TaskEngine";
+import TaskEnginePage from "./pages/TaskEngine";
 import Analytics from "./pages/referrals/Analytics";
 import AITraining from "./pages/referrals/AITraining";
 import Settings from "./pages/Settings";
@@ -49,6 +50,7 @@ const App = () => (
                     <Route path="/scripts" element={<ScriptHub />} />
                     <Route path="/referrals/campaigns" element={<CampaignBuilder />} />
                     <Route path="/referrals/tasks" element={<TaskEngine />} />
+            <Route path="/task-engine" element={<TaskEnginePage />} />
                     <Route path="/referrals/analytics" element={<Analytics />} />
                     <Route path="/referrals/ai-training" element={<AITraining />} />
                     <Route path="/settings" element={<Settings />} />
