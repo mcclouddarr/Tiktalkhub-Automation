@@ -10,13 +10,18 @@ async function sb(path: string, init: RequestInit) {
   return fetch(`${SUPABASE_URL}${path}`, { ...init, headers });
 }
 
+async function fetchLaunchPayload(task_id: string) {
+  // Task + persona cookies and a naive device/proxy selection can be done client-side.
+  // Here we assume the client sent payload already.
+  return null;
+}
+
 serve(async (req) => {
   try {
     const body = await req.json();
     const { action, task_id, run_id, payload } = body;
 
     if (action === 'start') {
-      // Create run
       let resp = await sb(`/rest/v1/task_runs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Prefer: 'return=representation' },
@@ -25,8 +30,14 @@ serve(async (req) => {
       const runData = await resp.json();
       const run = Array.isArray(runData) ? runData[0] : runData;
 
-      // Here you would call a local controller that runs Playwright/Phantom
-      // await fetch('http://localhost:4000/launch', { method: 'POST', body: JSON.stringify({ run_id: run.id, ...payload }) });
+      // Forward to local runner (adjust URL as needed)
+      if (payload) {
+        await fetch('http://localhost:4000/launch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ run_id: run.id, ...payload })
+        });
+      }
 
       await sb(`/rest/v1/task_runs?id=eq.${run.id}`, {
         method: 'PATCH',
