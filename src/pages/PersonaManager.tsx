@@ -83,7 +83,18 @@ export default function PersonaManager() {
             <Upload className="h-4 w-4 mr-2" />
             Import Dataset
           </Button>
-          <Button className="bg-gradient-primary hover:opacity-90">
+          <Button className="bg-gradient-primary hover:opacity-90" onClick={() => {
+            // Example quick create; replace with proper dialog if needed
+            const name = prompt('Persona name?');
+            if (!name) return;
+            fetch('/').then(async () => {
+              const { createPersona } = await import('@/lib/db');
+              await createPersona({ name });
+              const { queryClient } = await import('@tanstack/react-query');
+              // no-op here; page uses query invalidate via manual reload
+              window.location.reload();
+            });
+          }}>
             <Plus className="h-4 w-4 mr-2" />
             Add Persona
           </Button>

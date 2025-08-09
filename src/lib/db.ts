@@ -44,6 +44,30 @@ export type SessionRow = {
   created_at: string;
 };
 
+export type ProxyRow = {
+  id: string;
+  ip: string;
+  port: number;
+  username: string | null;
+  password: string | null;
+  proxy_type: string;
+  status: string | null;
+  last_check_time: string | null;
+  health_score: number | null;
+  location_metadata: any | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CookieRow = {
+  id: string;
+  persona_id: string | null;
+  cookie_blob: any | null;
+  expires_at: string | null;
+  created_at: string;
+};
+
+// Queries
 export async function fetchPersonas() {
   return supabase
     .from("personas")
@@ -66,6 +90,14 @@ export async function fetchSessions() {
     .limit(200);
 }
 
+export async function fetchProxies() {
+  return supabase
+    .from("proxies")
+    .select("*")
+    .order("updated_at", { ascending: false });
+}
+
+// Create
 export async function createPersona(payload: Partial<PersonaRow>) {
   return supabase.from("personas").insert(payload).select("*").single();
 }
@@ -76,4 +108,46 @@ export async function createDevice(payload: Partial<DeviceRow>) {
 
 export async function createSession(payload: Partial<SessionRow>) {
   return supabase.from("sessions").insert(payload).select("*").single();
+}
+
+export async function createProxy(payload: Partial<ProxyRow>) {
+  return supabase.from("proxies").insert(payload).select("*").single();
+}
+
+export async function createCookie(payload: Partial<CookieRow>) {
+  return supabase.from("cookies").insert(payload).select("*").single();
+}
+
+// Update
+export async function updatePersona(id: string, patch: Partial<PersonaRow>) {
+  return supabase.from("personas").update(patch).eq("id", id).select("*").single();
+}
+
+export async function updateDevice(id: string, patch: Partial<DeviceRow>) {
+  return supabase.from("devices").update(patch).eq("id", id).select("*").single();
+}
+
+export async function updateSession(id: string, patch: Partial<SessionRow>) {
+  return supabase.from("sessions").update(patch).eq("id", id).select("*").single();
+}
+
+export async function updateProxy(id: string, patch: Partial<ProxyRow>) {
+  return supabase.from("proxies").update(patch).eq("id", id).select("*").single();
+}
+
+// Delete
+export async function deletePersona(id: string) {
+  return supabase.from("personas").delete().eq("id", id);
+}
+
+export async function deleteDevice(id: string) {
+  return supabase.from("devices").delete().eq("id", id);
+}
+
+export async function deleteSession(id: string) {
+  return supabase.from("sessions").delete().eq("id", id);
+}
+
+export async function deleteProxy(id: string) {
+  return supabase.from("proxies").delete().eq("id", id);
 }

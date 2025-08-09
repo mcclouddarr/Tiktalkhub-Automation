@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchProxies, createProxy } from "@/lib/db";
+import { supabase } from "@/lib/supabaseClient";
 import {
   Shield,
   Plus,
@@ -37,65 +40,6 @@ import {
   Ban
 } from "lucide-react";
 
-const proxies = [
-  {
-    id: "proxy_001",
-    ip: "157.245.123.45",
-    port: 8080,
-    type: "SOCKS5",
-    country: "United States",
-    city: "New York",
-    status: "healthy",
-    ping: "24ms",
-    uptime: "99.8%",
-    lastChecked: "2 min ago",
-    flagged: false,
-    provider: "DataCenter A"
-  },
-  {
-    id: "proxy_002", 
-    ip: "178.62.89.123",
-    port: 3128,
-    type: "HTTP",
-    country: "United Kingdom",
-    city: "London",
-    status: "healthy",
-    ping: "18ms",
-    uptime: "100%",
-    lastChecked: "1 min ago",
-    flagged: false,
-    provider: "Residential B"
-  },
-  {
-    id: "proxy_003",
-    ip: "46.183.221.67",
-    port: 1080,
-    type: "SOCKS5",
-    country: "Germany",
-    city: "Berlin",
-    status: "warning",
-    ping: "45ms",
-    uptime: "95.2%",
-    lastChecked: "5 min ago",
-    flagged: true,
-    provider: "DataCenter A"
-  },
-  {
-    id: "proxy_004",
-    ip: "103.85.24.156",
-    port: 8080,
-    type: "HTTP",
-    country: "Japan",
-    city: "Tokyo",
-    status: "down",
-    ping: "timeout",
-    uptime: "89.1%",
-    lastChecked: "10 min ago",
-    flagged: true,
-    provider: "Mobile C"
-  }
-];
-
 export default function ProxyManager() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCountry, setFilterCountry] = useState("all");
@@ -108,10 +52,35 @@ export default function ProxyManager() {
     country: "",
     provider: ""
   });
+  const queryClient = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ["proxies"],
+    queryFn: async () => {
+      const { data, error } = await fetchProxies();
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const proxies = useMemo(() => (data || []).map((p: any) => ({
+    id: p.id,
+    ip: p.ip,
+    port: p.port,
+    type: p.proxy_type,
+    country: p.location_metadata?.country || p.location_metadata?.country_name || "",
+    city: p.location_metadata?.city || "",
+    status: p.status === 'active' ? 'healthy' : p.status === 'dead' ? 'down' : (p.status || 'warning'),
+    ping: p.location_metadata?.ping || "-",
+    uptime: p.location_metadata?.uptime || "-",
+    lastChecked: p.last_check_time,
+    flagged: (p.status || '').toLowerCase() === 'flagged',
+    provider: p.location_metadata?.provider || ""
+  })), [data]);
 
   const filteredProxies = proxies.filter(proxy => {
     const matchesSearch = proxy.ip.includes(searchTerm) || 
-                         proxy.country.toLowerCase().includes(searchTerm.toLowerCase());
+                         (proxy.country || "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCountry = filterCountry === "all" || proxy.country === filterCountry;
     const matchesStatus = filterStatus === "all" || proxy.status === filterStatus;
     return matchesSearch && matchesCountry && matchesStatus;
@@ -145,6 +114,29 @@ export default function ProxyManager() {
 
   const flaggedProxies = proxies.filter(p => p.flagged).length;
   const downProxies = proxies.filter(p => p.status === "down").length;
+
+  async function handleAddProxy() {
+    await createProxy({
+      ip: newProxy.ip,
+      port: newProxy.port,
+      proxy_type: newProxy.type,
+      status: "active",
+      location_metadata: { country: newProxy.country, provider: newProxy.provider },
+    } as any);
+    setShowAddDialog(false);
+    queryClient.invalidateQueries({ queryKey: ["proxies"] });
+  }
+
+  async function checkProxyHealth(id: string, ip: string, port: number) {
+    await supabase.functions.invoke("checkProxyHealth", {
+      body: { id, ip, port },
+    });
+    queryClient.invalidateQueries({ queryKey: ["proxies"] });
+  }
+
+  async function checkAll() {
+    await Promise.all(proxies.map(p => checkProxyHealth(p.id, p.ip, p.port)));
+  }
 
   return (
     <div className="space-y-6">
@@ -233,7 +225,7 @@ export default function ProxyManager() {
                   <Button variant="outline" onClick={() => setShowAddDialog(false)}>
                     Cancel
                   </Button>
-                  <Button className="bg-gradient-primary hover:opacity-90">
+                  <Button className="bg-gradient-primary hover:opacity-90" onClick={handleAddProxy}>
                     Add Proxy
                   </Button>
                 </div>
@@ -307,7 +299,7 @@ export default function ProxyManager() {
             <div className="flex items-center gap-3">
               <Zap className="h-8 w-8 text-warning" />
               <div>
-                <p className="text-2xl font-bold">28ms</p>
+                <p className="text-2xl font-bold">-</p>
                 <p className="text-sm text-muted-foreground">Avg Ping</p>
               </div>
             </div>
@@ -321,7 +313,7 @@ export default function ProxyManager() {
           <div className="flex items-center justify-between">
             <CardTitle>Proxy Infrastructure</CardTitle>
             <div className="flex gap-3">
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={checkAll}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Check All
               </Button>
@@ -343,10 +335,9 @@ export default function ProxyManager() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Countries</SelectItem>
-                <SelectItem value="United States">United States</SelectItem>
-                <SelectItem value="United Kingdom">United Kingdom</SelectItem>
-                <SelectItem value="Germany">Germany</SelectItem>
-                <SelectItem value="Japan">Japan</SelectItem>
+                {[...new Set(proxies.map(p => p.country).filter(Boolean))].map((c) => (
+                  <SelectItem key={c} value={c as string}>{c as string}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -411,7 +402,7 @@ export default function ProxyManager() {
                   <TableCell>{proxy.provider}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => checkProxyHealth(proxy.id, proxy.ip, proxy.port)}>
                         <RefreshCw className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="sm">

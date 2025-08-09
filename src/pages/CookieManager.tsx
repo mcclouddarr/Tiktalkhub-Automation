@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, Download, Eye, Link2, Chrome, Globe, Code } from "lucide-react";
+import { uploadCookieBlob, listCookieFiles, getPublicFileUrl } from "@/lib/storage";
 
 interface CookieSession {
   id: string;
@@ -41,6 +42,11 @@ const mockSessions: CookieSession[] = [
 ];
 
 export default function CookieManager() {
+  const [files, setFiles] = useState<any[]>([]);
+  useEffect(() => { (async () => {
+    const { data } = await listCookieFiles();
+    setFiles(data || []);
+  })(); }, []);
   const [sessions, setSessions] = useState<CookieSession[]>(mockSessions);
   const [selectedPersona, setSelectedPersona] = useState("");
   const [rawCookieData, setRawCookieData] = useState("");
@@ -124,9 +130,21 @@ export default function CookieManager() {
             <Download className="h-4 w-4 mr-2" />
             Export All
           </Button>
-          <Button>
-            <Upload className="h-4 w-4 mr-2" />
-            Import Cookies
+          <Button asChild>
+            <label className="inline-flex items-center cursor-pointer">
+              <Upload className="h-4 w-4 mr-2" />
+              <span>Import Cookies</span>
+              <input type="file" accept=".json,.txt" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const personaId = selectedPersona || 'unassigned';
+                const { error, path } = await uploadCookieBlob(personaId, file);
+                if (!error) {
+                  const { data } = await listCookieFiles();
+                  setFiles(data || []);
+                }
+              }} />
+            </label>
           </Button>
         </div>
       </div>
@@ -160,6 +178,12 @@ export default function CookieManager() {
                   </Button>
                   <Button variant="outline" onClick={handleAutoMatch}>
                     Auto-Match
+                  </Button>
+                  <Button variant="outline" onClick={async () => {
+                    const list = files.map(f => f.name).join("\n");
+                    alert(`Files in storage (cookies):\n${list}`);
+                  }}>
+                    List Storage
                   </Button>
                 </div>
               </CardTitle>
