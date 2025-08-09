@@ -215,6 +215,10 @@ export default function ScriptHub() {
                   <Input id="tpl-desc" placeholder="Short description" className="mt-2" />
                 </div>
                 <div>
+                  <Label>Tags (comma separated)</Label>
+                  <Input id="tpl-tags" placeholder="youtube, subscribe" className="mt-2" />
+                </div>
+                <div>
                   <Label>Steps (JSON)</Label>
                   <Textarea id="tpl-steps" placeholder='[ { "action":"open", "url":"https://example.com" } ]' className="mt-2 h-48" />
                 </div>
@@ -222,10 +226,12 @@ export default function ScriptHub() {
                   <Button onClick={async () => {
                     const name = (document.getElementById('tpl-name') as HTMLInputElement)?.value || ''
                     const description = (document.getElementById('tpl-desc') as HTMLInputElement)?.value || ''
+                    const tagsRaw = (document.getElementById('tpl-tags') as HTMLInputElement)?.value || ''
                     const stepsRaw = (document.getElementById('tpl-steps') as HTMLTextAreaElement)?.value || '[]'
                     try {
                       const steps = JSON.parse(stepsRaw)
-                      await createTemplate({ name, description, steps })
+                      const tags = tagsRaw.split(',').map(s=> s.trim()).filter(Boolean)
+                      await createTemplate({ name, description, steps, tags })
                       setShowCreateDialog(false)
                       await load()
                       toast({ title: 'Template created', description: name })

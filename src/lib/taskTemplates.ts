@@ -7,15 +7,18 @@ type TaskTemplate = {
   name: string;
   description?: string | null;
   steps: any[]; // e.g. [{ action: 'open', url: '...' }, { action: 'click', selector: '...' }]
+  tags?: string[] | null;
 }
 
-export async function listTemplates() {
-  const { data, error } = await supabase.from('task_templates').select('*').order('created_at', { ascending: false });
+export async function listTemplates(search?: string) {
+  let query = supabase.from('task_templates').select('*').order('created_at', { ascending: false })
+  if (search && search.trim()) query = query.ilike('name', `%${search}%`)
+  const { data, error } = await query
   if (error) throw error;
   return data || [];
 }
 
-export async function createTemplate(t: { name: string; description?: string; steps: any[] }) {
+export async function createTemplate(t: { name: string; description?: string; steps: any[]; tags?: string[] }) {
   const { data, error } = await supabase.from('task_templates').insert(t).select('*').single();
   if (error) throw error;
   return data as TaskTemplate;

@@ -35,11 +35,18 @@ export default function PersonaManager() {
   const [filterOS, setFilterOS] = useState("all");
   const [selectedPersona, setSelectedPersona] = useState<any | null>(null);
   const { toast } = useToast()
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(50)
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
 
   const { data, isLoading } = useQuery({
-    queryKey: ["personas"],
+    queryKey: ["personas", page, pageSize, searchTerm],
     queryFn: async () => {
-      const { data, error } = await fetchPersonas();
+      setLoading(true)
+      const { data, error, count } = await fetchPersonas(pageSize, page * pageSize, searchTerm);
+      setTotal(count || 0)
+      setLoading(false)
       if (error) throw error;
       return data || [];
     },
@@ -163,6 +170,14 @@ export default function PersonaManager() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">{total} total • Page {page+1}</div>
+        <div className="space-x-2">
+          <Button variant='outline' size='sm' disabled={page===0 || loading} onClick={()=> setPage(p=> Math.max(0,p-1))}>Prev</Button>
+          <Button variant='outline' size='sm' disabled={(page+1)*pageSize>=total || loading} onClick={()=> setPage(p=> p+1)}>Next</Button>
+        </div>
       </div>
 
       {/* Filters and Search */}
