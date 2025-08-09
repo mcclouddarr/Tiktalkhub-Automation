@@ -40,12 +40,14 @@ import {
   Activity,
   Ban
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function ProxyManager() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCountry, setFilterCountry] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [csvText, setCsvText] = useState('')
   const [newProxy, setNewProxy] = useState({
     ip: "",
     port: 8080,
@@ -155,6 +157,36 @@ export default function ProxyManager() {
             <Upload className="h-4 w-4 mr-2" />
             Import CSV
           </Button>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">Bulk Import</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Bulk Import Proxies (CSV)</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <Label>CSV (ip,port,username,password,type,country,provider)</Label>
+                <Textarea value={csvText} onChange={(e)=>setCsvText(e.target.value)} placeholder="1.2.3.4,8080,user,pass,HTTP,US,ISP" />
+                <Button onClick={async ()=>{
+                  const lines = csvText.split(/\r?\n/).map(l=>l.trim()).filter(Boolean)
+                  const rows = lines.map(l=>l.split(',').map(s=>s.trim()))
+                  const batch = rows.map(cols => ({
+                    ip: cols[0], port: parseInt(cols[1]), username: cols[2]||null, password: cols[3]||null,
+                    proxy_type: cols[4]||'HTTP', status: 'active',
+                    location_metadata: { country: cols[5]||'', provider: cols[6]||'' }
+                  }))
+                  // chunk insert
+                  const { supabase } = await import('@/lib/supabaseClient')
+                  for (let i=0;i<batch.length;i+=100){
+                    const slice = batch.slice(i,i+100)
+                    // @ts-ignore
+                    await supabase.from('proxies').insert(slice)
+                  }
+                  setCsvText('')
+                  queryClient.invalidateQueries({ queryKey: ['proxies'] })
+                }}>Import</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
           <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-primary hover:opacity-90">
@@ -358,49 +390,28 @@ export default function ProxyManager() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>IP Address</TableHead>
+                <TableHead>IP</TableHead>
+                <TableHead>Port</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Location</TableHead>
+                <TableHead>Health</TableHead>
+                <TableHead>Last Check</TableHead>
+                <TableHead>Country</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Ping</TableHead>
-                <TableHead>Uptime</TableHead>
-                <TableHead>Provider</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredProxies.map((proxy) => (
-                <TableRow key={proxy.id} className={proxy.flagged ? "bg-warning/5" : ""}>
+              {filteredProxies.map(proxy => (
+                <TableRow key={proxy.id}>
+                  <TableCell className="font-mono text-xs">{proxy.ip}</TableCell>
+                  <TableCell>{proxy.port}</TableCell>
+                  <TableCell><Badge variant="outline">{proxy.type}</Badge></TableCell>
+                  <TableCell>{data?.find((p:any)=>p.id===proxy.id)?.health_score ?? '-'}</TableCell>
+                  <TableCell>{data?.find((p:any)=>p.id===proxy.id)?.last_check_time ? new Date(data?.find((p:any)=>p.id===proxy.id)?.last_check_time).toLocaleString() : '-'}</TableCell>
+                  <TableCell>{proxy.country || '-'}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono">{proxy.ip}:{proxy.port}</span>
-                      {proxy.flagged && (
-                        <div title="Flagged as suspicious">
-                          <Ban className="h-4 w-4 text-warning" />
-                        </div>
-                      )}
-                    </div>
+                    <Badge className={getStatusColor(proxy.status)}>{proxy.status}</Badge>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{proxy.type}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{proxy.country}</p>
-                      <p className="text-sm text-muted-foreground">{proxy.city}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(proxy.status)}>
-                      <div className="flex items-center gap-1">
-                        {getStatusIcon(proxy.status)}
-                        {proxy.status}
-                      </div>
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{proxy.ping}</TableCell>
-                  <TableCell>{proxy.uptime}</TableCell>
-                  <TableCell>{proxy.provider}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" title="Check health" onClick={() => checkProxyHealth(proxy.id, proxy.ip, proxy.port)}>

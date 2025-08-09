@@ -67,6 +67,40 @@ export type CookieRow = {
   created_at: string;
 };
 
+export type TaskRunRow = {
+  id: string
+  task_id: string
+  status: string | null
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+}
+
+export type TaskLogRow = {
+  id: string
+  run_id: string
+  level: 'info'|'warn'|'error'|'debug'
+  message: string
+  data: any | null
+  ts: string
+}
+
+export type ReferralCampaignRow = {
+  id: string
+  name: string
+  traffic_source: string
+  notes: string | null
+  created_at: string
+}
+
+export type ReferralTaskRow = {
+  id: string
+  campaign_id: string
+  persona_id: string | null
+  status: string | null
+  created_at: string
+}
+
 // Queries
 export async function fetchPersonas() {
   return supabase

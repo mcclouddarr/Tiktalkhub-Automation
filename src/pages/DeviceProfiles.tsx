@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchDevices } from "@/lib/db";
+import { fetchDevices, createDevice, updateDevice } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +52,8 @@ export default function DeviceProfiles() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [newProfile, setNewProfile] = useState<any>({ device_name: '', type: '', os: '', browser: '', viewport: '', ua: '', webgl_renderer: '' })
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   const { data } = useQuery({
     queryKey: ["devices"],
@@ -166,6 +168,8 @@ export default function DeviceProfiles() {
                       id="device-name"
                       placeholder="iPhone 16 Pro"
                       className="mt-2"
+                      value={newProfile.device_name}
+                      onChange={(e) => setNewProfile({ ...newProfile, device_name: e.target.value })}
                     />
                   </div>
                   <div>
@@ -195,6 +199,8 @@ export default function DeviceProfiles() {
                       id="device-os"
                       placeholder="iOS 18.0"
                       className="mt-2"
+                      value={newProfile.os}
+                      onChange={(e) => setNewProfile({ ...newProfile, os: e.target.value })}
                     />
                   </div>
                   <div>
@@ -220,6 +226,8 @@ export default function DeviceProfiles() {
                       id="screen-resolution"
                       placeholder="1206x2622"
                       className="mt-2"
+                      value={newProfile.viewport}
+                      onChange={(e) => setNewProfile({ ...newProfile, viewport: e.target.value })}
                     />
                   </div>
                   <div>
@@ -228,6 +236,8 @@ export default function DeviceProfiles() {
                       id="webgl-renderer"
                       placeholder="Apple A18 Pro GPU"
                       className="mt-2"
+                      value={newProfile.webgl_renderer}
+                      onChange={(e) => setNewProfile({ ...newProfile, webgl_renderer: e.target.value })}
                     />
                   </div>
                 </div>
@@ -238,6 +248,8 @@ export default function DeviceProfiles() {
                     id="user-agent"
                     placeholder="Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)..."
                     className="mt-2"
+                    value={newProfile.ua}
+                    onChange={(e) => setNewProfile({ ...newProfile, ua: e.target.value })}
                   />
                 </div>
 
@@ -245,7 +257,25 @@ export default function DeviceProfiles() {
                   <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
                     Cancel
                   </Button>
-                  <Button className="bg-gradient-primary hover:opacity-90">
+                  <Button className="bg-gradient-primary hover:opacity-90" onClick={async () => {
+                    const payload = {
+                      device_name: newProfile.device_name || 'Unnamed Device',
+                      browser_type: newProfile.browser || 'Chrome',
+                      viewport: newProfile.viewport || '1280x800',
+                      os: newProfile.os || null,
+                      user_agent: newProfile.ua || null,
+                      platform: null,
+                      fingerprint_config: {
+                        type: (newProfile.type || '').toLowerCase().includes('mobile') ? 'mobile' : 'desktop',
+                        webgl: { vendor: undefined, renderer: newProfile.webgl_renderer || undefined },
+                        screen: (() => { const [w,h] = (newProfile.viewport || '1280x800').split('x').map((x) => parseInt(x)); return { width: w, height: h } })(),
+                      },
+                      real_device_emulation_profile_url: null,
+                      status: 'active',
+                    }
+                    await createDevice(payload as any)
+                    setShowCreateDialog(false)
+                  }}>
                     Create Profile
                   </Button>
                 </div>

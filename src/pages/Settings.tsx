@@ -53,6 +53,7 @@ export default function Settings() {
   const [persistPath, setPersistPath] = useState("");
   const [countryHint, setCountryHint] = useState("");
   const [devicePreference, setDevicePreference] = useState<'mobile' | 'desktop' | 'any'>("any");
+  const [vantaWorkerUrl, setVantaWorkerUrl] = useState('')
 
   useEffect(() => {
     const d = getAutomationDefaults();
@@ -60,6 +61,8 @@ export default function Settings() {
     setPersistPath(d.persistPath || "");
     setCountryHint(d.countryHint || "");
     setDevicePreference(d.devicePreference);
+    const saved = window.localStorage.getItem('tiktalkhub:vantaWorkerUrl')
+    if (saved) setVantaWorkerUrl(saved)
   }, []);
 
   function saveDefaults() {
@@ -69,6 +72,7 @@ export default function Settings() {
       countryHint: countryHint || null,
       devicePreference,
     });
+    window.localStorage.setItem('tiktalkhub:vantaWorkerUrl', vantaWorkerUrl || '')
   }
 
   const getLevelBadge = (level: string) => {
@@ -165,6 +169,11 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground">
                   Your Supabase API key is used for backend operations and data storage
                 </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vanta-url">Vanta Worker URL</Label>
+                <Input id="vanta-url" placeholder="https://your-worker.workers.dev" value={vantaWorkerUrl} onChange={(e)=> setVantaWorkerUrl(e.target.value)} />
+                <p className="text-sm text-muted-foreground">Used to fetch Playwright plans. If empty, automated steps will be minimal.</p>
               </div>
 
               <div className="space-y-4 border-t pt-4">
@@ -369,33 +378,24 @@ export default function Settings() {
           <CardTitle>Automation Defaults</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="headless">Headless</Label>
-            <Switch id="headless" checked={headless} onCheckedChange={(v) => setHeadless(!!v)} />
-          </div>
-          <div>
-            <Label htmlFor="persistPath">Persist Path</Label>
-            <Input id="persistPath" value={persistPath} onChange={(e) => setPersistPath(e.target.value)} placeholder="/tmp/profiles" />
-          </div>
-          <div>
-            <Label htmlFor="countryHint">Default Country Hint</Label>
-            <Input id="countryHint" value={countryHint} onChange={(e) => setCountryHint(e.target.value)} placeholder="United States" />
-          </div>
-          <div>
-            <Label>Device Preference</Label>
-            <Select value={devicePreference} onValueChange={(v: any) => setDevicePreference(v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any</SelectItem>
-                <SelectItem value="mobile">Mobile</SelectItem>
-                <SelectItem value="desktop">Desktop</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center justify-between border rounded-lg p-3">
+              <div>
+                <div className="font-medium">Headless Mode</div>
+                <div className="text-sm text-muted-foreground">Run browsers without UI for better performance</div>
+              </div>
+              <Switch checked={headless} onCheckedChange={setHeadless} />
+            </div>
+            <div className="flex items-center justify-between border rounded-lg p-3">
+              <div>
+                <div className="font-medium">Persona Persist Path</div>
+                <div className="text-sm text-muted-foreground">Where browser profiles are stored</div>
+              </div>
+              <Input value={persistPath} onChange={(e)=> setPersistPath(e.target.value)} className="max-w-[300px]" />
+            </div>
           </div>
           <div className="text-right">
-            <button className="px-4 py-2 rounded bg-primary text-primary-foreground" onClick={saveDefaults}>Save</button>
+            <Button onClick={saveDefaults}>Save Defaults</Button>
           </div>
         </CardContent>
       </Card>

@@ -72,6 +72,16 @@ export default function CampaignBuilder() {
     await loadCampaigns();
   }
 
+  async function startTasksForCampaign(campaignId: string){
+    const { data: personas } = await supabase.from('personas').select('id').limit(50)
+    if (!personas || personas.length === 0) return
+    const inserts = personas.map(p => ({ campaign_id: campaignId, persona_id: p.id, status: 'pending' }))
+    for (let i=0;i<inserts.length;i+=100){
+      await supabase.from('referral_tasks').insert(inserts.slice(i,i+100))
+    }
+    await loadCampaigns()
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "active":
@@ -189,7 +199,7 @@ export default function CampaignBuilder() {
                   <TableCell>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => setSelectedCampaign(c)}>View</Button>
-                      <Button size="sm" variant="outline">Start Tasks</Button>
+                      <Button size="sm" variant="outline" onClick={() => startTasksForCampaign(c.id)}>Start Tasks</Button>
                     </div>
                   </TableCell>
                 </TableRow>

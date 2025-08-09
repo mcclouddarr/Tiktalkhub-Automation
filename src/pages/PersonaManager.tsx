@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchPersonas } from "@/lib/db";
+import { fetchPersonas, updatePersona, deletePersona } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -253,26 +253,17 @@ export default function PersonaManager() {
                                 </div>
                               </div>
                               <div>
-                                <h4 className="font-semibold mb-3">Activity</h4>
+                                <h4 className="font-semibold mb-3">Edit</h4>
                                 <div className="space-y-2 text-sm">
-                                  <p><span className="text-muted-foreground">Status:</span> {selectedPersona.status ?? 'active'}</p>
-                                  <p><span className="text-muted-foreground">Total Sessions:</span> -</p>
+                                  <Input placeholder="Name" defaultValue={selectedPersona.name} onBlur={async (e) => { await updatePersona(selectedPersona.id, { name: e.target.value }) }} />
+                                  <Input placeholder="Tags (comma)" defaultValue={(selectedPersona.tags || []).join(',')} onBlur={async (e) => { await updatePersona(selectedPersona.id, { tags: e.target.value.split(',').map((s:string)=>s.trim()).filter(Boolean) }) }} />
                                 </div>
-                              </div>
-                              <div className="col-span-2">
-                                <h4 className="font-semibold mb-3">Backstory & Behavior</h4>
-                                <p className="text-sm text-muted-foreground mb-3">
-                                  {selectedPersona.backstory || '—'}
-                                </p>
                               </div>
                             </div>
                           )}
                         </DialogContent>
                       </Dialog>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={async () => { await deletePersona(persona.id); window.location.reload(); }}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

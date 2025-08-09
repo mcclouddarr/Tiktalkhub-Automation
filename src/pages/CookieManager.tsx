@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, Download, Eye, Link2, Chrome, Globe, Code } from "lucide-react";
 import { uploadCookieBlob, listCookieFiles, getPublicFileUrl } from "@/lib/storage";
+import { supabase } from "@/lib/supabaseClient";
 
 interface CookieSession {
   id: string;
@@ -49,6 +50,11 @@ export default function CookieManager() {
   })(); }, []);
   const [sessions, setSessions] = useState<CookieSession[]>(mockSessions);
   const [selectedPersona, setSelectedPersona] = useState("");
+  const [personas, setPersonas] = useState<any[]>([]);
+  useEffect(() => { (async () => {
+    const { data: ps } = await supabase.from('personas').select('id,name').order('created_at', { ascending: false }).limit(500);
+    setPersonas(ps || [])
+  })(); }, []);
   const [rawCookieData, setRawCookieData] = useState("");
 
   const getStatusBadge = (status: string) => {
@@ -76,8 +82,16 @@ export default function CookieManager() {
     console.log("Importing from Playwright...");
   };
 
-  const handleAttachToPersona = () => {
-    console.log("Attaching to persona:", selectedPersona);
+  const handleAttachToPersona = async () => {
+    if (!selectedPersona || files.length === 0) return;
+    const latest = files[0];
+    // Fetch file and parse JSON to insert into cookies table
+    const url = getPublicFileUrl('cookies', latest.name)
+    const resp = await fetch(url)
+    const json = await resp.json().catch(() => null)
+    // Insert cookies row linked to persona
+    await supabase.from('cookies').insert({ persona_id: selectedPersona, cookie_blob: json || { path: latest.name } })
+    alert('Attached latest cookie file to persona')
   };
 
   const handleAutoMatch = () => {
@@ -167,9 +181,9 @@ export default function CookieManager() {
                       <SelectValue placeholder="Select Persona" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="sarah">Sarah Johnson</SelectItem>
-                      <SelectItem value="mark">Mark Chen</SelectItem>
-                      <SelectItem value="emma">Emma Rodriguez</SelectItem>
+                      {personas.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Button onClick={handleAttachToPersona} disabled={!selectedPersona}>
@@ -215,7 +229,13 @@ export default function CookieManager() {
                           <Button variant="ghost" size="sm" onClick={() => handleViewRaw(session.id)}>
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" onClick={async () => {
+                            const list = await listCookieFiles(selectedPersona || undefined)
+                            const latest = list.data?.[0]
+                            if (!latest) return
+                            const url = getPublicFileUrl('cookies', latest.name)
+                            window.open(url, '_blank')
+                          }}>
                             <Download className="h-4 w-4" />
                           </Button>
                         </div>

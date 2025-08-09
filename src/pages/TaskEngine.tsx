@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { subscribeTaskRuns, subscribeTaskLogs } from '@/lib/realtime'
+import { getAutomationDefaults } from '@/lib/automationDefaults'
 
 const supabase = createClient(import.meta.env.VITE_SUPABASE_URL!, import.meta.env.VITE_SUPABASE_ANON_KEY!)
 
@@ -12,7 +13,7 @@ export default function TaskEnginePage(){
   const [tasks, setTasks] = useState<any[]>([])
   const [runs, setRuns] = useState<any[]>([])
   const [logs, setLogs] = useState<any[]>([])
-  const [newTask, setNewTask] = useState({ persona_id: '', task_type: 'referral', execution_mode: 'manual', target_url: '' })
+  const [newTask, setNewTask] = useState({ persona_id: '', task_type: 'referral', execution_mode: 'manual', target_url: '', headless: false })
 
   async function load(){
     const { data: t } = await supabase.from('tasks').select('*').order('created_at', { ascending: false })
@@ -28,7 +29,7 @@ export default function TaskEnginePage(){
   }, [])
 
   async function createTask(){
-    await supabase.from('tasks').insert(newTask)
+    await supabase.from('tasks').insert({ ...newTask, headless: newTask.headless ? 'true' : 'false' } as any)
     setNewTask({ persona_id: '', task_type: 'referral', execution_mode: 'manual', target_url: '' })
     await load()
   }
@@ -39,7 +40,8 @@ export default function TaskEnginePage(){
     if (!task) return
     const { buildLaunchForTask } = await import('@/lib/automationHooks')
     const { planSteps } = await import('@/lib/vanta')
-    const { launchConfig, preCookies } = await buildLaunchForTask(task.persona_id, task.target_url || '', { headless: false })
+    const defaults = getAutomationDefaults()
+    const { launchConfig, preCookies } = await buildLaunchForTask(task.persona_id, task.target_url || '', { headless: defaults.headless })
     const steps = await planSteps(task.target_url || null, null)
     await supabase.functions.invoke('taskController', { body: { action: 'start', task_id: id, payload: { launchConfig, cookies: preCookies, target: task.target_url, steps } } })
   }
@@ -67,6 +69,10 @@ export default function TaskEnginePage(){
             <Input placeholder='Task Type (referral, browsing, ...)' value={newTask.task_type} onChange={(e) => setNewTask({ ...newTask, task_type: e.target.value })} />
             <Input placeholder='Mode (manual|vanta)' value={newTask.execution_mode} onChange={(e) => setNewTask({ ...newTask, execution_mode: e.target.value })} />
             <Input placeholder='Target URL' value={newTask.target_url} onChange={(e) => setNewTask({ ...newTask, target_url: e.target.value })} />
+            <div className='flex items-center gap-2'>
+              <label className='text-sm text-muted-foreground'>Headless</label>
+              <input type='checkbox' checked={newTask.headless} onChange={(e)=> setNewTask({ ...newTask, headless: e.target.checked })} />
+            </div>
           </div>
           <Button onClick={createTask}>Create</Button>
         </CardContent>
@@ -84,6 +90,7 @@ export default function TaskEnginePage(){
                 <TableHead>Mode</TableHead>
                 <TableHead>Target</TableHead>
                 <TableHead>Actions</TableHead>
+                <TableHead>Logs (live)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -96,6 +103,15 @@ export default function TaskEnginePage(){
                   <TableCell className='truncate max-w-[240px]'>{t.target_url}</TableCell>
                   <TableCell>
                     <Button size='sm' onClick={() => startTask(t.id)}>Start</Button>
+                    <Button size='sm' variant='outline' className='ml-2' onClick={() => {
+                      const r = runs.find(r=> r.task_id === t.id)
+                      if (!r) return
+                      const el = document.getElementById(`run-${r.id}`)
+                      if (el) el.scrollIntoView({ behavior: 'smooth' })
+                    }}>View Run</Button>
+                  </TableCell>
+                  <TableCell className='text-xs text-muted-foreground'>
+                    {(runs.find(r=> r.task_id === t.id) ? logs.slice(-5).map(l=> l.message).join(' | ') : '-')}
                   </TableCell>
                 </TableRow>
               ))}

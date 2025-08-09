@@ -19,3 +19,19 @@ export function subscribeTaskLogs(runId: string, cb: Callback) {
     .subscribe();
   return () => supabase.removeChannel(channel);
 }
+
+export function subscribeProxies(cb: Callback) {
+  const channel = supabase
+    .channel('public:proxies')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'proxies' }, (payload) => cb(payload))
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
+export function subscribeTasks(cb: Callback) {
+  const channel = supabase
+    .channel('public:tasks')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => cb(payload))
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}

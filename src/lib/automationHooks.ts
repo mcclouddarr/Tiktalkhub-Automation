@@ -128,6 +128,11 @@ export async function buildLaunchForTask(personaId: string, targetUrl: string, o
     const cookieRow = await getPersonaCookieBlob(personaId);
     preCookies = normalizeCookiesForDomain(cookieRow?.cookie_blob || cookieRow, dom);
   }
+  // Stash Vanta Worker URL in headers for optional downstream usage
+  try {
+    const vantaUrl = window.localStorage.getItem('tiktalkhub:vantaWorkerUrl') || ''
+    if (vantaUrl) (launchConfig as any).vantaWorkerUrl = vantaUrl
+  } catch {}
   return { launchConfig, preCookies };
 }
 
