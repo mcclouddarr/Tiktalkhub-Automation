@@ -78,12 +78,13 @@ async function runSteps(page, steps, runId){
 
 async function uploadFile(bucket, filePath){
   try{
-    if (!supabase) return
+    if (!supabase) return null
     const fileName = path.basename(filePath)
     const arrayBuffer = await fs.promises.readFile(filePath)
     const { error } = await supabase.storage.from(bucket).upload(fileName, arrayBuffer, { upsert: true, contentType: 'application/zip' })
-    if (error) console.warn('Upload error', error)
-  } catch(e){ console.warn('Upload exception', e) }
+    if (error) { console.warn('Upload error', error); return null }
+    return fileName
+  } catch(e){ console.warn('Upload exception', e); return null }
 }
 
 function isBlockError(err){
@@ -131,14 +132,15 @@ export async function launchSession({ run_id, launchConfig, cookies, target, ste
       await log(run_id, 'info', 'session_complete')
       const traceFile = path.join(outDir, `trace-${run_id}-${attempt}.zip`)
       await context.tracing.stop({ path: traceFile })
-      await uploadFile('logs', traceFile)
+      const uploaded = await uploadFile('logs', traceFile)
+      if (uploaded) await log(run_id, 'info', 'trace_uploaded', { bucket: 'logs', file: uploaded })
       await browser.close()
       return
     } catch(e){
       lastError = e
       await log(run_id, 'error', 'session_error', { error: String(e), attempt })
       const traceFile = path.join(outDir, `trace-${run_id}-${attempt}.zip`)
-      try { await context.tracing.stop({ path: traceFile }); await uploadFile('logs', traceFile) } catch{}
+      try { await context.tracing.stop({ path: traceFile }); const uploaded = await uploadFile('logs', traceFile); if (uploaded) await log(run_id, 'info', 'trace_uploaded', { bucket: 'logs', file: uploaded }) } catch{}
       await browser.close()
       if (isBlockError(e) && attempt < maxAttempts){
         await log(run_id, 'warn', 'retrying_after_block', { attempt })

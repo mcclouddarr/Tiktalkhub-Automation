@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { subscribeTaskRuns, subscribeTaskLogs } from '@/lib/realtime'
 import { getAutomationDefaults } from '@/lib/automationDefaults'
+import { Link } from 'react-router-dom'
 
 const supabase = createClient(import.meta.env.VITE_SUPABASE_URL!, import.meta.env.VITE_SUPABASE_ANON_KEY!)
 
@@ -137,7 +138,7 @@ export default function TaskEnginePage(){
               <TableBody>
                 {runs.map(r => (
                   <TableRow key={r.id}>
-                    <TableCell className='font-mono text-xs'>{r.id}</TableCell>
+                    <TableCell className='font-mono text-xs'><Link className='underline' to={`/runs/${r.id}`}>{r.id}</Link></TableCell>
                     <TableCell>{r.status}</TableCell>
                     <TableCell>{r.started_at ? new Date(r.started_at).toLocaleString() : '-'}</TableCell>
                     <TableCell>{r.finished_at ? new Date(r.finished_at).toLocaleString() : '-'}</TableCell>
