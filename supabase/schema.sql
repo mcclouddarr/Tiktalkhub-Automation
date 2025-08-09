@@ -34,17 +34,7 @@ create table if not exists public.proxies (
   updated_at timestamptz default now()
 );
 
--- 3. cookies
-create table if not exists public.cookies (
-  id uuid primary key default uuid_generate_v4(),
-  persona_id uuid,
-  cookie_blob jsonb,
-  expires_at timestamptz,
-  created_at timestamptz default now(),
-  foreign key (persona_id) references public.personas(id) on delete set null
-);
-
--- 4. personas
+-- 3. personas (before cookies to avoid FK cycle)
 create table if not exists public.personas (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
@@ -53,15 +43,24 @@ create table if not exists public.personas (
   backstory text,
   profile_picture text,
   device_id uuid,
-  cookie_id uuid,
+  cookie_id uuid, -- optional link (no FK to avoid cycle with cookies)
   proxy_id uuid,
   tags text[],
   status text default 'active',
   created_at timestamptz default now(),
   updated_at timestamptz default now(),
   foreign key (device_id) references public.devices(id) on delete set null,
-  foreign key (cookie_id) references public.cookies(id) on delete set null,
   foreign key (proxy_id) references public.proxies(id) on delete set null
+);
+
+-- 4. cookies (after personas)
+create table if not exists public.cookies (
+  id uuid primary key default uuid_generate_v4(),
+  persona_id uuid,
+  cookie_blob jsonb,
+  expires_at timestamptz,
+  created_at timestamptz default now(),
+  foreign key (persona_id) references public.personas(id) on delete set null
 );
 
 -- 5. sessions
@@ -116,7 +115,6 @@ create table if not exists public.vanta_updates (
   updated_at timestamptz default now()
 );
 
--- Storage buckets (to be created via storage API/UI): cookies, screenshots, logs
 -- Realtime publication
 alter publication supabase_realtime add table public.sessions;
 alter publication supabase_realtime add table public.personas;
@@ -152,30 +150,32 @@ alter table public.referrals enable row level security;
 alter table public.tasks enable row level security;
 alter table public.vanta_updates enable row level security;
 
-create policy "Allow read for all auth users" on public.personas for select using (auth.role() = 'authenticated');
-create policy "Allow read for all auth users" on public.devices for select using (auth.role() = 'authenticated');
-create policy "Allow read for all auth users" on public.sessions for select using (auth.role() = 'authenticated');
-create policy "Allow read for all auth users" on public.proxies for select using (auth.role() = 'authenticated');
-create policy "Allow read for all auth users" on public.cookies for select using (auth.role() = 'authenticated');
-create policy "Allow read for all auth users" on public.referrals for select using (auth.role() = 'authenticated');
-create policy "Allow read for all auth users" on public.tasks for select using (auth.role() = 'authenticated');
-create policy "Allow read for all auth users" on public.vanta_updates for select using (auth.role() = 'authenticated');
+create policy if not exists "Allow read for all auth users" on public.personas for select using (auth.role() = 'authenticated');
+create policy if not exists "Allow read for all auth users" on public.devices for select using (auth.role() = 'authenticated');
+create policy if not exists "Allow read for all auth users" on public.sessions for select using (auth.role() = 'authenticated');
+create policy if not exists "Allow read for all auth users" on public.proxies for select using (auth.role() = 'authenticated');
+create policy if not exists "Allow read for all auth users" on public.cookies for select using (auth.role() = 'authenticated');
+create policy if not exists "Allow read for all auth users" on public.referrals for select using (auth.role() = 'authenticated');
+create policy if not exists "Allow read for all auth users" on public.tasks for select using (auth.role() = 'authenticated');
+create policy if not exists "Allow read for all auth users" on public.vanta_updates for select using (auth.role() = 'authenticated');
 
--- Basic insert/update for authenticated users
-create policy "Allow insert for all auth users" on public.personas for insert with check (auth.role() = 'authenticated');
-create policy "Allow insert for all auth users" on public.devices for insert with check (auth.role() = 'authenticated');
-create policy "Allow insert for all auth users" on public.sessions for insert with check (auth.role() = 'authenticated');
-create policy "Allow insert for all auth users" on public.proxies for insert with check (auth.role() = 'authenticated');
-create policy "Allow insert for all auth users" on public.cookies for insert with check (auth.role() = 'authenticated');
-create policy "Allow insert for all auth users" on public.referrals for insert with check (auth.role() = 'authenticated');
-create policy "Allow insert for all auth users" on public.tasks for insert with check (auth.role() = 'authenticated');
-create policy "Allow insert for all auth users" on public.vanta_updates for insert with check (auth.role() = 'authenticated');
+create policy if not exists "Allow insert for all auth users" on public.personas for insert with check (auth.role() = 'authenticated');
+create policy if not exists "Allow insert for all auth users" on public.devices for insert with check (auth.role() = 'authenticated');
+create policy if not exists "Allow insert for all auth users" on public.sessions for insert with check (auth.role() = 'authenticated');
+create policy if not exists "Allow insert for all auth users" on public.proxies for insert with check (auth.role() = 'authenticated');
+create policy if not exists "Allow insert for all auth users" on public.cookies for insert with check (auth.role() = 'authenticated');
+create policy if not exists "Allow insert for all auth users" on public.referrals for insert with check (auth.role() = 'authenticated');
+create policy if not exists "Allow insert for all auth users" on public.tasks for insert with check (auth.role() = 'authenticated');
+create policy if not exists "Allow insert for all auth users" on public.vanta_updates for insert with check (auth.role() = 'authenticated');
 
-create policy "Allow update for all auth users" on public.personas for update using (auth.role() = 'authenticated');
-create policy "Allow update for all auth users" on public.devices for update using (auth.role() = 'authenticated');
-create policy "Allow update for all auth users" on public.sessions for update using (auth.role() = 'authenticated');
-create policy "Allow update for all auth users" on public.proxies for update using (auth.role() = 'authenticated');
-create policy "Allow update for all auth users" on public.cookies for update using (auth.role() = 'authenticated');
-create policy "Allow update for all auth users" on public.referrals for update using (auth.role() = 'authenticated');
-create policy "Allow update for all auth users" on public.tasks for update using (auth.role() = 'authenticated');
-create policy "Allow update for all auth users" on public.vanta_updates for update using (auth.role() = 'authenticated');
+create policy if not exists "Allow update for all auth users" on public.personas for update using (auth.role() = 'authenticated');
+create policy if not exists "Allow update for all auth users" on public.devices for update using (auth.role() = 'authenticated');
+create policy if not exists "Allow update for all auth users" on public.sessions for update using (auth.role() = 'authenticated');
+create policy if not exists "Allow update for all auth users" on public.proxies for update using (auth.role() = 'authenticated');
+create policy if not exists "Allow update for all auth users" on public.cookies for update using (auth.role() = 'authenticated');
+create policy if not exists "Allow update for all auth users" on public.referrals for update using (auth.role() = 'authenticated');
+create policy if not exists "Allow update for all auth users" on public.tasks for update using (auth.role() = 'authenticated');
+create policy if not exists "Allow update for all auth users" on public.vanta_updates for update using (auth.role() = 'authenticated');
+
+-- Force PostgREST to reload schema
+select pg_notify('pgrst', 'reload schema');
