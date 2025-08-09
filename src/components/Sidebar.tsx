@@ -153,21 +153,21 @@ export function Sidebar({ isOpen }: SidebarProps) {
     >
       <div className="flex items-center justify-center h-16 border-b border-border bg-gradient-primary">
         <div className="flex items-center gap-3">
-          <Bot className="h-8 w-8 text-primary-foreground" />
+          <img src="/src/assets/tiktalkhub-logo.png" alt="Tiktalkhub" className="h-8 w-8" />
           {isOpen && (
             <span className="text-xl font-bold text-primary-foreground">
-              TikTalk Automaton
+              Tiktalkhub Automation
             </span>
           )}
         </div>
       </div>
 
-      <nav className="mt-6 px-3 overflow-y-auto h-[calc(100vh-8rem)]">
+      <nav className="mt-6 px-3 overflow-y-auto h-[calc(100vh-12rem)] pb-4">
         {navigation.map(renderNavItem)}
       </nav>
 
       {isOpen && (
-        <div className="absolute bottom-4 left-4 right-4">
+        <div className="absolute bottom-4 left-4 right-4 mb-16">
           <div className="bg-gradient-accent rounded-lg p-4 border border-primary/20">
             <div className="flex items-center gap-2 mb-2">
               <div className="h-2 w-2 bg-success rounded-full animate-pulse" />
