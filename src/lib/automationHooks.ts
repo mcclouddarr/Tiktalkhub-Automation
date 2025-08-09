@@ -12,6 +12,15 @@ export type PersonaLite = {
   tags: string[] | null;
 };
 
+function domainFromUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
 export async function pickDeviceForPersona(personaId: string) {
   // fetch persona + linked device if any
   const { data: persona, error } = await supabase
@@ -27,7 +36,7 @@ export async function pickDeviceForPersona(personaId: string) {
   const { data: devices } = await supabase
     .from("devices")
     .select("*")
-    .limit(50);
+    .limit(100);
   const pool = (devices || []).filter((d: any) => (d.fingerprint_config?.type || "").includes(preferredType));
   return pool[Math.floor(Math.random() * pool.length)] || devices?.[0];
 }
@@ -37,7 +46,7 @@ export async function pickHealthyProxy(countryHint?: string) {
     .from("proxies")
     .select("*")
     .order("updated_at", { ascending: false })
-    .limit(200);
+    .limit(500);
   let pool = proxies || [];
   if (countryHint) pool = pool.filter((p: any) => (p.location_metadata?.country || "") === countryHint);
   pool = pool.filter((p: any) => (p.status || "").toLowerCase() === "active");
@@ -52,9 +61,9 @@ export async function pickHealthyProxy(countryHint?: string) {
   } as ProxyConfig;
 }
 
-export async function buildLaunchForPersona(personaId: string, opts?: { headless?: boolean; persistPath?: string | null }) {
+export async function buildLaunchForPersona(personaId: string, opts?: { headless?: boolean; persistPath?: string | null; countryHint?: string | null }) {
   const device = await pickDeviceForPersona(personaId);
-  const proxy = await pickHealthyProxy();
+  const proxy = await pickHealthyProxy(opts?.countryHint || undefined);
   const deviceShell: DeviceShell = {
     type: (device.fingerprint_config?.type || "") as any,
     browser: device.browser_type,
@@ -76,4 +85,50 @@ export async function buildLaunchForPersona(personaId: string, opts?: { headless
     },
   };
   return buildLaunchConfig(deviceShell, { proxy, headless: opts?.headless ?? false, persistPath: opts?.persistPath || null });
+}
+
+export async function getPersonaCookieBlob(personaId: string) {
+  // latest cookie row for persona
+  const { data, error } = await supabase
+    .from("cookies")
+    .select("id, cookie_blob, expires_at")
+    .eq("persona_id", personaId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data || null;
+}
+
+export function normalizeCookiesForDomain(cookieBlob: any, targetDomain: string) {
+  if (!cookieBlob) return [] as any[];
+  const domain = targetDomain.replace(/^www\./, "");
+  const cookies = Array.isArray(cookieBlob?.cookies) ? cookieBlob.cookies : [];
+  return cookies
+    .filter((c: any) => typeof c?.name === "string")
+    .map((c: any) => ({
+      name: c.name,
+      value: c.value,
+      domain: c.domain || `.${domain}`,
+      path: c.path || "/",
+      httpOnly: !!c.httpOnly,
+      secure: c.secure !== false,
+      expires: c.expires ? Math.floor(c.expires / 1000) : undefined,
+    }));
+}
+
+export async function buildLaunchForTask(personaId: string, targetUrl: string, opts?: { headless?: boolean; persistPath?: string | null; countryHint?: string | null }) {
+  const launchConfig = await buildLaunchForPersona(personaId, opts);
+  const dom = domainFromUrl(targetUrl);
+  let preCookies: any[] = [];
+  if (dom) {
+    const cookieRow = await getPersonaCookieBlob(personaId);
+    preCookies = normalizeCookiesForDomain(cookieRow?.cookie_blob || cookieRow, dom);
+  }
+  return { launchConfig, preCookies };
+}
+
+export async function buildLaunchForReferral(personaId: string, referralLink: string, opts?: { headless?: boolean; persistPath?: string | null; countryHint?: string | null }) {
+  // Same as task, but you might choose to select countryHint based on campaign geo
+  return buildLaunchForTask(personaId, referralLink, opts);
 }
