@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Upload, Download, Eye, Link2, Chrome, Globe, Code } from "lucide-react";
-import { uploadCookieBlob, listCookieFiles, getPublicFileUrl } from "@/lib/storage";
+import { uploadCookieBlob, listCookieFiles, getPublicFileUrl, getSignedUrl } from "@/lib/storage";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from '@/components/ui/use-toast'
 
@@ -88,7 +88,8 @@ export default function CookieManager() {
     if (!selectedPersona || files.length === 0) return;
     const latest = files[0];
     // Fetch file and parse JSON to insert into cookies table
-    const url = getPublicFileUrl('cookies', latest.name)
+    let url = ''
+    try { url = await getSignedUrl('cookies', latest.name, 60) } catch { url = getPublicFileUrl('cookies', latest.name) }
     const resp = await fetch(url)
     const json = await resp.json().catch(() => null)
     // Insert cookies row linked to persona
@@ -232,10 +233,8 @@ export default function CookieManager() {
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button variant="ghost" size="sm" onClick={async () => {
-                            const list = await listCookieFiles(selectedPersona || undefined)
-                            const latest = list.data?.[0]
-                            if (!latest) return
-                            const url = getPublicFileUrl('cookies', latest.name)
+                            let url = ''
+                            try { url = await getSignedUrl('cookies', latest.name, 60) } catch { url = getPublicFileUrl('cookies', latest.name) }
                             window.open(url, '_blank')
                             toast({ title: 'Download started', description: latest.name })
                           }}>
