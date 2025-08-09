@@ -1,0 +1,11 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Tiktalkhub logo">
+  <rect width="256" height="256" fill="#0a0a0a"/>
+  <g>
+    <path d="M30 50h120c8.8 0 16 7.2 16 16v58c0 8.8-7.2 16-16 16H100l-26 26 8-26H30c-8.8 0-16-7.2-16-16V66c0-8.8 7.2-16 16-16z" fill="#b59a3a"/>
+    <path d="M106 96h120c8.8 0 16 7.2 16 16v58c0 8.8-7.2 16-16 16h-50l24 32-44-32h-50c-8.8 0-16-7.2-16-16v-58c0-8.8 7.2-16 16-16z" fill="#ffffff"/>
+  </g>
+  <g font-family="Inter, Arial, sans-serif" font-weight="700" fill="#0a0a0a">
+    <text x="120" y="118" font-size="28" text-anchor="middle" fill="#0a0a0a">tiktalk</text>
+    <text x="170" y="152" font-size="24" text-anchor="middle" fill="#0a0a0a">hub</text>
+  </g>
+</svg>
