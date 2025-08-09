@@ -1,104 +1,183 @@
--- Referral Engine schema
+-- Schema: Referral Engine
+-- Contains tables, indexes, RLS policies, and realtime configuration
 
--- Campaigns
-create table if not exists public.referral_campaigns (
-  id uuid primary key default uuid_generate_v4(),
-  name text not null,
-  persona_id uuid references public.personas(id) on delete set null,
-  device_shell_id uuid references public.devices(id) on delete set null,
-  proxy_id uuid references public.proxies(id) on delete set null,
-  cookie_id uuid references public.cookies(id) on delete set null,
-  traffic_source text not null, -- tiktok, facebook, instagram, x, whatsapp, custom
-  notes text,
-  created_at timestamptz default now()
+-- Ensure uuid-ossp extension is available for uuid_generate_v4()
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- Referral Campaigns
+CREATE TABLE IF NOT EXISTS public.referral_campaigns (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  persona_id UUID REFERENCES public.personas(id) ON DELETE SET NULL,
+  device_shell_id UUID REFERENCES public.devices(id) ON DELETE SET NULL,
+  proxy_id UUID REFERENCES public.proxies(id) ON DELETE SET NULL,
+  cookie_id UUID REFERENCES public.cookies(id) ON DELETE SET NULL,
+  traffic_source TEXT NOT NULL CHECK (
+    traffic_source IN ('tiktok', 'facebook', 'instagram', 'x', 'whatsapp', 'custom')
+  ),
+  notes TEXT,
+  status TEXT DEFAULT 'draft' CHECK (
+    status IN ('draft', 'active', 'paused', 'completed')
+  ),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-create index if not exists referral_campaigns_persona_id_idx on public.referral_campaigns(persona_id);
+-- Indexes for Referral Campaigns
+CREATE INDEX IF NOT EXISTS referral_campaigns_persona_id_idx ON public.referral_campaigns(persona_id);
+CREATE INDEX IF NOT EXISTS referral_campaigns_status_idx ON public.referral_campaigns(status);
+CREATE INDEX IF NOT EXISTS referral_campaigns_traffic_source_idx ON public.referral_campaigns(traffic_source);
 
--- Tasks
-create table if not exists public.referral_tasks (
-  id uuid primary key default uuid_generate_v4(),
-  campaign_id uuid references public.referral_campaigns(id) on delete cascade,
-  persona_id uuid references public.personas(id) on delete set null,
-  status text default 'pending', -- pending|running|complete|failed
-  session_id uuid references public.sessions(id) on delete set null,
-  vanta_config_snapshot jsonb,
-  started_at timestamptz,
-  ended_at timestamptz,
-  created_at timestamptz default now()
+-- Referral Tasks
+CREATE TABLE IF NOT EXISTS public.referral_tasks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  campaign_id UUID REFERENCES public.referral_campaigns(id) ON DELETE CASCADE,
+  persona_id UUID REFERENCES public.personas(id) ON DELETE SET NULL,
+  status TEXT DEFAULT 'pending' CHECK (
+    status IN ('pending', 'running', 'complete', 'failed')
+  ),
+  session_id UUID REFERENCES public.sessions(id) ON DELETE SET NULL,
+  vanta_config_snapshot JSONB,
+  started_at TIMESTAMPTZ,
+  ended_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  error_log TEXT
 );
 
-create index if not exists referral_tasks_campaign_id_idx on public.referral_tasks(campaign_id);
-create index if not exists referral_tasks_status_idx on public.referral_tasks(status);
+-- Indexes for Referral Tasks
+CREATE INDEX IF NOT EXISTS referral_tasks_campaign_id_idx ON public.referral_tasks(campaign_id);
+CREATE INDEX IF NOT EXISTS referral_tasks_status_idx ON public.referral_tasks(status);
+CREATE INDEX IF NOT EXISTS referral_tasks_persona_id_idx ON public.referral_tasks(persona_id);
 
--- Sessions per referral task
-create table if not exists public.referral_sessions (
-  id uuid primary key default uuid_generate_v4(),
-  task_id uuid references public.referral_tasks(id) on delete cascade,
-  entry_point_url text,
-  user_actions jsonb, -- clicks, scrolls, durations, pauses, cta
-  exit_path text,
-  converted boolean default false,
-  replay_log_url text,
-  created_at timestamptz default now()
+-- Referral Sessions
+CREATE TABLE IF NOT EXISTS public.referral_sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  task_id UUID REFERENCES public.referral_tasks(id) ON DELETE CASCADE,
+  entry_point_url TEXT,
+  user_actions JSONB, -- clicks, scrolls, durations, pauses, cta
+  exit_path TEXT,
+  converted BOOLEAN DEFAULT FALSE,
+  replay_log_url TEXT,
+  performance_metrics JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-create index if not exists referral_sessions_task_id_idx on public.referral_sessions(task_id);
+-- Indexes for Referral Sessions
+CREATE INDEX IF NOT EXISTS referral_sessions_task_id_idx ON public.referral_sessions(task_id);
+CREATE INDEX IF NOT EXISTS referral_sessions_converted_idx ON public.referral_sessions(converted);
 
--- Aggregated analytics snapshots
-create table if not exists public.referral_analytics_snapshots (
-  id uuid primary key default uuid_generate_v4(),
-  campaign_id uuid references public.referral_campaigns(id) on delete cascade,
-  date date not null,
-  clicks integer default 0,
-  conversions integer default 0,
-  bounce_rate numeric,
-  referral_depth integer,
-  ip_distribution jsonb,
-  platform_performance jsonb,
-  created_at timestamptz default now()
+-- Referral Analytics Snapshots
+CREATE TABLE IF NOT EXISTS public.referral_analytics_snapshots (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  campaign_id UUID REFERENCES public.referral_campaigns(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  clicks INTEGER DEFAULT 0,
+  conversions INTEGER DEFAULT 0,
+  bounce_rate NUMERIC(5,2) CHECK (bounce_rate BETWEEN 0 AND 100),
+  referral_depth INTEGER,
+  ip_distribution JSONB,
+  platform_performance JSONB,
+  unique_visitors INTEGER DEFAULT 0,
+  total_engagement_time INTERVAL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-create index if not exists referral_analytics_campaign_date_idx on public.referral_analytics_snapshots(campaign_id, date);
+-- Indexes for Referral Analytics Snapshots
+CREATE INDEX IF NOT EXISTS referral_analytics_campaign_date_idx ON public.referral_analytics_snapshots(campaign_id, date);
+CREATE INDEX IF NOT EXISTS referral_analytics_date_idx ON public.referral_analytics_snapshots(date);
 
--- Vanta AI referral configuration
-create table if not exists public.referral_ai_config (
-  id uuid primary key default uuid_generate_v4(),
-  campaign_id uuid references public.referral_campaigns(id) on delete cascade,
-  training_dataset_id uuid,
-  platform_behavior_config jsonb,
-  fraud_detection_config jsonb,
-  created_at timestamptz default now()
+-- Vanta AI Referral Configuration
+CREATE TABLE IF NOT EXISTS public.referral_ai_config (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  campaign_id UUID REFERENCES public.referral_campaigns(id) ON DELETE CASCADE,
+  training_dataset_id UUID,
+  platform_behavior_config JSONB,
+  fraud_detection_config JSONB,
+  ai_model_name TEXT,
+  confidence_threshold NUMERIC(4,2) CHECK (confidence_threshold BETWEEN 0 AND 1),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RLS
-alter table public.referral_campaigns enable row level security;
-alter table public.referral_tasks enable row level security;
-alter table public.referral_sessions enable row level security;
-alter table public.referral_analytics_snapshots enable row level security;
-alter table public.referral_ai_config enable row level security;
+-- Indexes for Referral AI Config
+CREATE INDEX IF NOT EXISTS referral_ai_config_campaign_id_idx ON public.referral_ai_config(campaign_id);
 
-create policy if not exists "r:campaigns" on public.referral_campaigns for select using (auth.role() = 'authenticated');
-create policy if not exists "i:campaigns" on public.referral_campaigns for insert with check (auth.role() = 'authenticated');
-create policy if not exists "u:campaigns" on public.referral_campaigns for update using (auth.role() = 'authenticated');
+-- Row Level Security (RLS) Enablement
+ALTER TABLE public.referral_campaigns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referral_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referral_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referral_analytics_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referral_ai_config ENABLE ROW LEVEL SECURITY;
 
-create policy if not exists "r:ref_tasks" on public.referral_tasks for select using (auth.role() = 'authenticated');
-create policy if not exists "i:ref_tasks" on public.referral_tasks for insert with check (auth.role() = 'authenticated');
-create policy if not exists "u:ref_tasks" on public.referral_tasks for update using (auth.role() = 'authenticated');
+-- Role-Based Policies
+-- Campaigns Policies
+CREATE POLICY IF NOT EXISTS "r:campaigns" ON public.referral_campaigns 
+    FOR SELECT 
+    USING (auth.role() IN ('authenticated', 'service_role'));
 
-create policy if not exists "r:ref_sessions" on public.referral_sessions for select using (auth.role() = 'authenticated');
-create policy if not exists "i:ref_sessions" on public.referral_sessions for insert with check (auth.role() = 'authenticated');
+CREATE POLICY IF NOT EXISTS "i:campaigns" ON public.referral_campaigns 
+    FOR INSERT 
+    WITH CHECK (auth.role() IN ('authenticated', 'service_role'));
 
-create policy if not exists "r:ref_analytics" on public.referral_analytics_snapshots for select using (auth.role() = 'authenticated');
-create policy if not exists "i:ref_analytics" on public.referral_analytics_snapshots for insert with check (auth.role() = 'authenticated');
+CREATE POLICY IF NOT EXISTS "u:campaigns" ON public.referral_campaigns 
+    FOR UPDATE 
+    USING (auth.role() IN ('authenticated', 'service_role'));
 
-create policy if not exists "r:ref_ai" on public.referral_ai_config for select using (auth.role() = 'authenticated');
-create policy if not exists "i:ref_ai" on public.referral_ai_config for insert with check (auth.role() = 'authenticated');
-create policy if not exists "u:ref_ai" on public.referral_ai_config for update using (auth.role() = 'authenticated');
+-- Tasks Policies
+CREATE POLICY IF NOT EXISTS "r:ref_tasks" ON public.referral_tasks 
+    FOR SELECT 
+    USING (auth.role() IN ('authenticated', 'service_role'));
 
--- Realtime on referral tasks for live dashboards
-alter publication supabase_realtime add table public.referral_tasks;
-alter publication supabase_realtime add table public.referral_sessions;
+CREATE POLICY IF NOT EXISTS "i:ref_tasks" ON public.referral_tasks 
+    FOR INSERT 
+    WITH CHECK (auth.role() IN ('authenticated', 'service_role'));
+
+CREATE POLICY IF NOT EXISTS "u:ref_tasks" ON public.referral_tasks 
+    FOR UPDATE 
+    USING (auth.role() IN ('authenticated', 'service_role'));
+
+-- Sessions Policies
+CREATE POLICY IF NOT EXISTS "r:ref_sessions" ON public.referral_sessions 
+    FOR SELECT 
+    USING (auth.role() IN ('authenticated', 'service_role'));
+
+CREATE POLICY IF NOT EXISTS "i:ref_sessions" ON public.referral_sessions 
+    FOR INSERT 
+    WITH CHECK (auth.role() IN ('authenticated', 'service_role'));
+
+-- Analytics Snapshots Policies
+CREATE POLICY IF NOT EXISTS "r:ref_analytics" ON public.referral_analytics_snapshots 
+    FOR SELECT 
+    USING (auth.role() IN ('authenticated', 'service_role'));
+
+CREATE POLICY IF NOT EXISTS "i:ref_analytics" ON public.referral_analytics_snapshots 
+    FOR INSERT 
+    WITH CHECK (auth.role() IN ('authenticated', 'service_role'));
+
+-- AI Config Policies
+CREATE POLICY IF NOT EXISTS "r:ref_ai" ON public.referral_ai_config 
+    FOR SELECT 
+    USING (auth.role() IN ('authenticated', 'service_role'));
+
+CREATE POLICY IF NOT EXISTS "i:ref_ai" ON public.referral_ai_config 
+    FOR INSERT 
+    WITH CHECK (auth.role() IN ('authenticated', 'service_role'));
+
+CREATE POLICY IF NOT EXISTS "u:ref_ai" ON public.referral_ai_config 
+    FOR UPDATE 
+    USING (auth.role() IN ('authenticated', 'service_role'));
+
+-- Realtime Publication for Live Dashboards
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime 
+    FOR TABLE public.referral_tasks, public.referral_sessions;
+  ELSE
+    ALTER PUBLICATION supabase_realtime ADD TABLE 
+    public.referral_tasks, public.referral_sessions;
+  END IF;
+END $$;
 
 -- Reload API cache
-select pg_notify('pgrst', 'reload schema');
+SELECT pg_notify('pgrst', 'reload schema');
