@@ -19,3 +19,9 @@ export function getPublicFileUrl(bucket: string, path: string) {
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data.publicUrl;
 }
+
+export async function getSignedUrl(bucket: string, path: string, expiresInSeconds = 60) {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresInSeconds)
+  if (error) throw error
+  return data.signedUrl
+}
