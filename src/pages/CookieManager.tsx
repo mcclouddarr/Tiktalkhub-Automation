@@ -198,7 +198,7 @@ export default function CookieManager() {
                   </Button>
                   <Button variant="outline" onClick={async () => {
                     const list = files.map(f => f.name).join("\n");
-                    alert(`Files in storage (cookies):\n${list}`);
+                    toast({ title: 'Storage files', description: list || 'No files' })
                   }}>
                     List Storage
                   </Button>

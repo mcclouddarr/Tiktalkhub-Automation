@@ -58,6 +58,7 @@ export default function ProxyManager() {
   });
   const queryClient = useQueryClient();
   const { toast } = useToast()
+  const [busyId, setBusyId] = useState<string>('')
 
   const { data } = useQuery({
     queryKey: ["proxies"],
@@ -133,11 +134,13 @@ export default function ProxyManager() {
   }
 
   async function checkProxyHealth(id: string, ip: string, port: number) {
+    setBusyId(id)
     await supabase.functions.invoke("checkProxyHealth", {
       body: { id, ip, port },
     });
     queryClient.invalidateQueries({ queryKey: ["proxies"] });
     toast({ title: 'Health check queued', description: `${ip}:${port}` })
+    setBusyId('')
   }
 
   async function checkAll() {
@@ -418,12 +421,12 @@ export default function ProxyManager() {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="sm" title="Check health" onClick={() => checkProxyHealth(proxy.id, proxy.ip, proxy.port)}>
+                      <Button variant="ghost" size="sm" title="Check health" disabled={busyId===proxy.id} onClick={() => checkProxyHealth(proxy.id, proxy.ip, proxy.port)}>
                         <RefreshCw className="h-4 w-4" />
                       </Button>
                       <Button variant="ghost" size="sm" title="Auto-switch from this proxy" onClick={async () => {
                         const next = await autoSwitchProxy(proxy.id);
-                        if (next) alert(`Switched to ${next.ip}:${next.port}`);
+                        if (next) toast({ title: 'Switched proxy', description: `${next.ip}:${next.port}` })
                         queryClient.invalidateQueries({ queryKey: ["proxies"] });
                       }}>
                         <Activity className="h-4 w-4" />
