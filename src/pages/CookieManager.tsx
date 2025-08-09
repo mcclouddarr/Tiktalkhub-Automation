@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Upload, Download, Eye, Link2, Chrome, Globe, Code } from "lucide-react";
 import { uploadCookieBlob, listCookieFiles, getPublicFileUrl } from "@/lib/storage";
 import { supabase } from "@/lib/supabaseClient";
+import { useToast } from '@/components/ui/use-toast'
 
 interface CookieSession {
   id: string;
@@ -44,6 +45,7 @@ const mockSessions: CookieSession[] = [
 
 export default function CookieManager() {
   const [files, setFiles] = useState<any[]>([]);
+  const { toast } = useToast()
   useEffect(() => { (async () => {
     const { data } = await listCookieFiles();
     setFiles(data || []);
@@ -91,7 +93,7 @@ export default function CookieManager() {
     const json = await resp.json().catch(() => null)
     // Insert cookies row linked to persona
     await supabase.from('cookies').insert({ persona_id: selectedPersona, cookie_blob: json || { path: latest.name } })
-    alert('Attached latest cookie file to persona')
+    toast({ title: 'Cookie attached', description: 'Latest cookie file linked to persona.' })
   };
 
   const handleAutoMatch = () => {
@@ -235,6 +237,7 @@ export default function CookieManager() {
                             if (!latest) return
                             const url = getPublicFileUrl('cookies', latest.name)
                             window.open(url, '_blank')
+                            toast({ title: 'Download started', description: latest.name })
                           }}>
                             <Download className="h-4 w-4" />
                           </Button>

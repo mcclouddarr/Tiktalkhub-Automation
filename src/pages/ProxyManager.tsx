@@ -41,6 +41,7 @@ import {
   Ban
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from '@/components/ui/use-toast'
 
 export default function ProxyManager() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -56,6 +57,7 @@ export default function ProxyManager() {
     provider: ""
   });
   const queryClient = useQueryClient();
+  const { toast } = useToast()
 
   const { data } = useQuery({
     queryKey: ["proxies"],
@@ -135,6 +137,7 @@ export default function ProxyManager() {
       body: { id, ip, port },
     });
     queryClient.invalidateQueries({ queryKey: ["proxies"] });
+    toast({ title: 'Health check queued', description: `${ip}:${port}` })
   }
 
   async function checkAll() {
@@ -183,6 +186,7 @@ export default function ProxyManager() {
                   }
                   setCsvText('')
                   queryClient.invalidateQueries({ queryKey: ['proxies'] })
+                  toast({ title: 'Imported proxies', description: `${batch.length} rows` })
                 }}>Import</Button>
               </div>
             </DialogContent>

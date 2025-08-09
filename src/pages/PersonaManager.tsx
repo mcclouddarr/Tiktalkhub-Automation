@@ -28,11 +28,13 @@ import {
   Globe,
   Clock
 } from "lucide-react";
+import { useToast } from '@/components/ui/use-toast'
 
 export default function PersonaManager() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterOS, setFilterOS] = useState("all");
   const [selectedPersona, setSelectedPersona] = useState<any | null>(null);
+  const { toast } = useToast()
 
   const { data, isLoading } = useQuery({
     queryKey: ["personas"],
@@ -92,8 +94,8 @@ export default function PersonaManager() {
                 const { data, error } = await supabase.functions.invoke('uploadPersonas', {
                   body: Array.isArray(payload) ? payload : payload.personas
                 });
-                if (error) alert(error.message);
-                else alert(`Uploaded ${data?.inserted || 0} personas`);
+                if (error) toast({ title: 'Import failed', description: error.message });
+                else toast({ title: 'Import complete', description: `Uploaded ${data?.inserted || 0} personas` });
               }} />
             </label>
           </Button>

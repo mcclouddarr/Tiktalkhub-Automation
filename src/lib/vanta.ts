@@ -1,6 +1,11 @@
 export async function planSteps(target: string | null, campaign?: any): Promise<any[]> {
-  const workerUrl = import.meta.env.VITE_VANTA_WORKER_URL
-  if (!workerUrl) return []
+  let workerUrl = import.meta.env.VITE_VANTA_WORKER_URL as string
+  if (!workerUrl && typeof window !== 'undefined') {
+    workerUrl = window.localStorage.getItem('tiktalkhub:vantaWorkerUrl') || ''
+  }
+  if (!workerUrl) {
+    return []
+  }
   try{
     const resp = await fetch(`${workerUrl.replace(/\/$/, '')}/plan`, {
       method: 'POST',
