@@ -54,6 +54,8 @@ export default function Settings() {
   const [countryHint, setCountryHint] = useState("");
   const [devicePreference, setDevicePreference] = useState<'mobile' | 'desktop' | 'any'>("any");
   const [vantaWorkerUrl, setVantaWorkerUrl] = useState('')
+  const [delayMultiplier, setDelayMultiplier] = useState(1.0)
+  const [randomness, setRandomness] = useState(0.2)
 
   useEffect(() => {
     const d = getAutomationDefaults();
@@ -63,6 +65,8 @@ export default function Settings() {
     setDevicePreference(d.devicePreference);
     const saved = window.localStorage.getItem('tiktalkhub:vantaWorkerUrl')
     if (saved) setVantaWorkerUrl(saved)
+    setDelayMultiplier(d.behavior?.delayMultiplier ?? 1.0)
+    setRandomness(d.behavior?.randomness ?? 0.2)
   }, []);
 
   function saveDefaults() {
@@ -71,6 +75,7 @@ export default function Settings() {
       persistPath: persistPath || null,
       countryHint: countryHint || null,
       devicePreference,
+      behavior: { delayMultiplier, randomness }
     });
     window.localStorage.setItem('tiktalkhub:vantaWorkerUrl', vantaWorkerUrl || '')
   }
@@ -392,6 +397,20 @@ export default function Settings() {
                 <div className="text-sm text-muted-foreground">Where browser profiles are stored</div>
               </div>
               <Input value={persistPath} onChange={(e)=> setPersistPath(e.target.value)} className="max-w-[300px]" />
+            </div>
+            <div className="flex items-center justify-between border rounded-lg p-3 col-span-2">
+              <div>
+                <div className="font-medium">Behavior Delay Multiplier</div>
+                <div className="text-sm text-muted-foreground">Scale waits and pacing (e.g., 1.2 = slower)</div>
+              </div>
+              <Input type="number" step="0.1" min="0.1" value={delayMultiplier} onChange={(e)=> setDelayMultiplier(parseFloat(e.target.value)||1)} className="max-w-[140px]" />
+            </div>
+            <div className="flex items-center justify-between border rounded-lg p-3 col-span-2">
+              <div>
+                <div className="font-medium">Behavior Randomness</div>
+                <div className="text-sm text-muted-foreground">Variability for human-like timing (0-1)</div>
+              </div>
+              <Input type="number" step="0.05" min="0" max="1" value={randomness} onChange={(e)=> setRandomness(Math.max(0, Math.min(1, parseFloat(e.target.value)||0)))} className="max-w-[140px]" />
             </div>
           </div>
           <div className="text-right">

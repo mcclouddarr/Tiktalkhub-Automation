@@ -65,12 +65,21 @@ async function applyCookies(context, preCookies, target){
 
 async function runSteps(page, steps, runId){
   if (!Array.isArray(steps)) return
+  const defaults = { delayMultiplier: 1.0, randomness: 0.2 }
+  // @ts-ignore
+  const tuning = (globalThis.__BEHAVIOR__ || defaults)
+  const jitter = (ms) => {
+    const r = tuning.randomness ?? 0.2
+    const j = (Math.random() * 2 - 1) * r * ms
+    return Math.max(0, Math.round(ms + j))
+  }
+  const scaled = (ms) => Math.round((tuning.delayMultiplier ?? 1.0) * ms)
   for (const step of steps){
     try {
       if (step.action === 'open' && step.url){ await page.goto(step.url, { waitUntil: 'domcontentloaded' }); await log(runId, 'info', 'open', { url: step.url }) }
       if (step.action === 'click' && step.selector){ await page.click(step.selector, { timeout: (step.timeout || 10000) }); await log(runId, 'info', 'click', { selector: step.selector }) }
       if (step.action === 'type' && step.selector && typeof step.text === 'string'){ await page.fill(step.selector, step.text, { timeout: (step.timeout || 10000) }); await log(runId, 'info', 'type', { selector: step.selector }) }
-      if (step.action === 'wait' && step.ms){ await page.waitForTimeout(step.ms); await log(runId, 'info', 'wait', { ms: step.ms }) }
+      if (step.action === 'wait' && step.ms){ const ms = jitter(scaled(step.ms)); await page.waitForTimeout(ms); await log(runId, 'info', 'wait', { ms }) }
       if (step.action === 'scroll'){ await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await log(runId, 'info', 'scroll', {}) }
     } catch(e){ await log(runId, 'warn', 'step_failed', { step, error: String(e) }) }
   }

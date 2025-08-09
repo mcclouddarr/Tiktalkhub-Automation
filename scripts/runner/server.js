@@ -18,6 +18,12 @@ const server = http.createServer(async (req, res) => {
       const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'))
       const { run_id, payload } = body
       if (payload?.launchConfig?.headless !== undefined){ body.launchConfig = { ...(body.launchConfig||{}), headless: !!payload.launchConfig.headless } }
+      // Pass behavior tuning via a global for the process
+      try {
+        const d = JSON.parse(process.env.BEHAVIOR_DEFAULTS || '{"delayMultiplier":1,"randomness":0.2}')
+        // @ts-ignore
+        globalThis.__BEHAVIOR__ = d
+      } catch{}
       await updateRun(run_id, { status: 'running' })
       await launchSession(body)
       await updateRun(run_id, { status: 'completed', finished_at: new Date().toISOString() })
