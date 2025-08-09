@@ -16,7 +16,8 @@ const server = http.createServer(async (req, res) => {
     try{
       const chunks=[]; for await (const c of req) chunks.push(c)
       const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'))
-      const { run_id } = body
+      const { run_id, payload } = body
+      if (payload?.launchConfig?.headless !== undefined){ body.launchConfig = { ...(body.launchConfig||{}), headless: !!payload.launchConfig.headless } }
       await updateRun(run_id, { status: 'running' })
       await launchSession(body)
       await updateRun(run_id, { status: 'completed', finished_at: new Date().toISOString() })
@@ -32,6 +33,12 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(404)
   res.end()
 })
+
+function shutdown(){
+  try{ server.close(() => process.exit(0)) } catch { process.exit(0) }
+}
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
 
 const PORT = process.env.PORT || 4000
 server.listen(PORT, () => console.log('Runner listening on', PORT))

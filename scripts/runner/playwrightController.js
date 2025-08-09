@@ -76,45 +76,76 @@ async function runSteps(page, steps, runId){
   }
 }
 
+async function uploadFile(bucket, filePath){
+  try{
+    if (!supabase) return
+    const fileName = path.basename(filePath)
+    const arrayBuffer = await fs.promises.readFile(filePath)
+    const { error } = await supabase.storage.from(bucket).upload(fileName, arrayBuffer, { upsert: true, contentType: 'application/zip' })
+    if (error) console.warn('Upload error', error)
+  } catch(e){ console.warn('Upload exception', e) }
+}
+
+function isBlockError(err){
+  const s = String(err||'').toLowerCase()
+  return s.includes('403') || s.includes('blocked') || s.includes('forbidden')
+}
+
 export async function launchSession({ run_id, launchConfig, cookies, target, steps = [] }){
   const outDir = path.resolve(process.cwd(), 'runner_artifacts')
   fs.mkdirSync(outDir, { recursive: true })
 
-  const proxy = proxyFromLaunchConfig(launchConfig)
-  const launchOptions = {
-    headless: !!launchConfig.headless,
-    proxy,
-    args: buildChromiumArgs(launchConfig),
+  let attempt = 0
+  const maxAttempts = 3
+  let lastError = null
+
+  while (attempt < maxAttempts){
+    attempt++
+    const proxy = proxyFromLaunchConfig(launchConfig)
+    const launchOptions = {
+      headless: !!launchConfig.headless,
+      proxy,
+      args: buildChromiumArgs(launchConfig),
+    }
+    if (PHANTOM_EXECUTABLE) launchOptions.executablePath = PHANTOM_EXECUTABLE
+
+    const browser = await chromium.launch(launchOptions)
+    const context = await browser.newContext({
+      userAgent: launchConfig.headers?.['User-Agent'] || launchConfig.userAgent || undefined,
+      viewport: Array.isArray(launchConfig.viewport) ? { width: launchConfig.viewport[0], height: launchConfig.viewport[1] } : undefined,
+      recordVideo: { dir: outDir },
+    })
+
+    // fingerprint init
+    try { await context.addInitScript(buildInitScript(launchConfig.fingerprint || {})) } catch(e) {}
+
+    // tracing
+    await context.tracing.start({ screenshots: true, snapshots: true })
+
+    const page = await context.newPage()
+    try{
+      await applyCookies(context, cookies, target || 'https://example.com')
+      if (target){ await page.goto(target, { waitUntil: 'domcontentloaded' }) }
+      await runSteps(page, steps, run_id)
+
+      await log(run_id, 'info', 'session_complete')
+      const traceFile = path.join(outDir, `trace-${run_id}-${attempt}.zip`)
+      await context.tracing.stop({ path: traceFile })
+      await uploadFile('logs', traceFile)
+      await browser.close()
+      return
+    } catch(e){
+      lastError = e
+      await log(run_id, 'error', 'session_error', { error: String(e), attempt })
+      const traceFile = path.join(outDir, `trace-${run_id}-${attempt}.zip`)
+      try { await context.tracing.stop({ path: traceFile }); await uploadFile('logs', traceFile) } catch{}
+      await browser.close()
+      if (isBlockError(e) && attempt < maxAttempts){
+        await log(run_id, 'warn', 'retrying_after_block', { attempt })
+        continue
+      }
+      break
+    }
   }
-  if (PHANTOM_EXECUTABLE) launchOptions.executablePath = PHANTOM_EXECUTABLE
-
-  const browser = await chromium.launch(launchOptions)
-  const context = await browser.newContext({
-    userAgent: launchConfig.headers?.['User-Agent'] || launchConfig.userAgent || undefined,
-    viewport: Array.isArray(launchConfig.viewport) ? { width: launchConfig.viewport[0], height: launchConfig.viewport[1] } : undefined,
-    recordVideo: { dir: outDir },
-  })
-
-  // fingerprint init
-  try { await context.addInitScript(buildInitScript(launchConfig.fingerprint || {})) } catch(e) {}
-
-  // tracing
-  await context.tracing.start({ screenshots: true, snapshots: true })
-
-  // page
-  const page = await context.newPage()
-  try{
-    await applyCookies(context, cookies, target || 'https://example.com')
-    if (target){ await page.goto(target, { waitUntil: 'domcontentloaded' }) }
-    await runSteps(page, steps, run_id)
-
-    await log(run_id, 'info', 'session_complete')
-  } catch(e){
-    await log(run_id, 'error', 'session_error', { error: String(e) })
-    throw e
-  } finally {
-    const traceFile = path.join(outDir, `trace-${run_id}.zip`)
-    await context.tracing.stop({ path: traceFile })
-    await browser.close()
-  }
+  if (lastError) throw lastError
 }
