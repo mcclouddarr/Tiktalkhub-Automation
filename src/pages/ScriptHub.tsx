@@ -108,6 +108,7 @@ export default function ScriptHub() {
   const [personas, setPersonas] = useState<any[]>([]);
   const [personaId, setPersonaId] = useState("");
   const [varsJson, setVarsJson] = useState("{}");
+  const [search, setSearch] = useState('')
 
   async function load() {
     const list = await listTemplates();
@@ -153,7 +154,7 @@ export default function ScriptHub() {
     }
   }
 
-  const filtered = useMemo(() => templates, [templates]);
+  const filtered = useMemo(() => (templates || []).filter((t:any) => (t.name||'').toLowerCase().includes(search.toLowerCase())), [templates, search]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -183,6 +184,16 @@ export default function ScriptHub() {
         </div>
         <div className="flex gap-3">
           <Button variant="outline" onClick={seedDefaults}>Add Default Templates</Button>
+          <Button variant="outline" asChild>
+            <label className="inline-flex items-center cursor-pointer">
+              <Upload className="h-4 w-4 mr-2" />
+              <span>Import Template</span>
+              <input type="file" accept="application/json" className="hidden" onChange={async (e) => {
+                const file = e.target.files?.[0]; if (!file) return; const text = await file.text();
+                try { const obj = JSON.parse(text); await createTemplate(obj); await load(); toast({ title: 'Imported', description: obj.name || 'Template' }) } catch (err:any) { toast({ title: 'Import failed', description: String(err) }) }
+              }} />
+            </label>
+          </Button>
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
             <DialogTrigger asChild>
               <Button className="bg-gradient-primary hover:opacity-90">
@@ -231,7 +242,10 @@ export default function ScriptHub() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Templates</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Templates</CardTitle>
+            <Input placeholder="Search templates..." value={search} onChange={(e)=> setSearch(e.target.value)} className="max-w-[240px]" />
+          </div>
         </CardHeader>
         <CardContent>
           <Table>

@@ -22,6 +22,7 @@ import Analytics from "./pages/referrals/Analytics";
 import AITraining from "./pages/referrals/AITraining";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import RunDetails from "./pages/RunDetails";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
                     <Route path="/referrals/analytics" element={<Analytics />} />
                     <Route path="/referrals/ai-training" element={<AITraining />} />
                     <Route path="/settings" element={<Settings />} />
+                    <Route path="/runs/:id" element={<RunDetails />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Layout>
