@@ -34,7 +34,14 @@ export default function TaskEnginePage(){
   }
 
   async function startTask(id: string){
-    await supabase.functions.invoke('taskController', { body: { action: 'start', task_id: id } })
+    // Build launch payload on client: device/proxy/cookies and Vanta plan
+    const { data: task } = await supabase.from('tasks').select('*').eq('id', id).single()
+    if (!task) return
+    const { buildLaunchForTask } = await import('@/lib/automationHooks')
+    const { planSteps } = await import('@/lib/vanta')
+    const { launchConfig, preCookies } = await buildLaunchForTask(task.persona_id, task.target_url || '', { headless: false })
+    const steps = await planSteps(task.target_url || null, null)
+    await supabase.functions.invoke('taskController', { body: { action: 'start', task_id: id, payload: { launchConfig, cookies: preCookies, target: task.target_url, steps } } })
   }
   async function pauseRun(runId: string){ await supabase.functions.invoke('taskController', { body: { action: 'pause', run_id: runId } }) }
   async function resumeRun(runId: string){ await supabase.functions.invoke('taskController', { body: { action: 'resume', run_id: runId } }) }

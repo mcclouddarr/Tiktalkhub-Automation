@@ -67,7 +67,14 @@ export default function TaskEngine() {
   }
 
   async function startRefTask(taskId: string){
-    await supabase.functions.invoke('taskController', { body: { action: 'start', task_id: taskId } });
+    const { data: task } = await supabase.from('referral_tasks').select('*, referral_campaigns:campaign_id(traffic_source)').eq('id', taskId).single();
+    if (!task) return;
+    const { buildLaunchForTask } = await import('@/lib/automationHooks');
+    const { planSteps } = await import('@/lib/vanta');
+    const target = task?.referral_campaigns?.traffic_source ? `https://${task.referral_campaigns.traffic_source}.com` : null;
+    const { launchConfig, preCookies } = await buildLaunchForTask(task.persona_id, target || '', { headless: false });
+    const steps = await planSteps(target, { traffic_source: task?.referral_campaigns?.traffic_source });
+    await supabase.functions.invoke('taskController', { body: { action: 'start', task_id: taskId, payload: { launchConfig, cookies: preCookies, target, steps } } });
     await load();
   }
 
