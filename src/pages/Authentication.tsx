@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogIn, UserPlus, Chrome, Shield, Eye, EyeOff } from "lucide-react";
 
 export default function Authentication() {
+  const { signInWithEmail, signUpWithEmail } = useSupabaseAuth();
+  const navigate = useNavigate();
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
@@ -43,6 +51,8 @@ export default function Authentication() {
                   <Input
                     id="email"
                     type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
                     placeholder="your@email.com"
                   />
                 </div>
@@ -53,6 +63,8 @@ export default function Authentication() {
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
                       placeholder="••••••••"
                     />
                     <Button
@@ -87,7 +99,10 @@ export default function Authentication() {
                   </Button>
                 </div>
 
-                <Button className="w-full bg-gradient-primary hover:opacity-90">
+                <Button className="w-full bg-gradient-primary hover:opacity-90" onClick={async () => {
+                  const { error } = await signInWithEmail(loginEmail, loginPassword);
+                  if (!error) navigate("/");
+                }}>
                   Sign In
                 </Button>
 
@@ -124,6 +139,8 @@ export default function Authentication() {
                   <Input
                     id="signup-email"
                     type="email"
+                    value={signupEmail}
+                    onChange={(e) => setSignupEmail(e.target.value)}
                     placeholder="your@email.com"
                   />
                 </div>
@@ -133,6 +150,8 @@ export default function Authentication() {
                   <Input
                     id="signup-password"
                     type="password"
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
                     placeholder="••••••••"
                   />
                 </div>
@@ -158,7 +177,10 @@ export default function Authentication() {
                   </Label>
                 </div>
 
-                <Button className="w-full bg-gradient-primary hover:opacity-90">
+                <Button className="w-full bg-gradient-primary hover:opacity-90" onClick={async () => {
+                  const { error } = await signUpWithEmail(signupEmail, signupPassword);
+                  if (!error) navigate("/");
+                }}>
                   Create Account
                 </Button>
 

@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import RequireAuth from "@/components/RequireAuth";
 import { Layout } from "@/components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Authentication from "./pages/Authentication";
@@ -29,26 +30,35 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/auth" element={<Authentication />} />
-            <Route path="/personas" element={<PersonaManager />} />
-            <Route path="/device-profiles" element={<DeviceProfiles />} />
-            <Route path="/sessions" element={<SessionReplayer />} />
-            <Route path="/cookies" element={<CookieManager />} />
-            <Route path="/proxies" element={<ProxyManager />} />
-            <Route path="/scheduler" element={<Scheduler />} />
-            <Route path="/ai-trainer" element={<AITrainer />} />
-            <Route path="/scripts" element={<ScriptHub />} />
-            <Route path="/referrals/campaigns" element={<CampaignBuilder />} />
-            <Route path="/referrals/tasks" element={<TaskEngine />} />
-            <Route path="/referrals/analytics" element={<Analytics />} />
-            <Route path="/referrals/ai-training" element={<AITraining />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Layout>
+        <Routes>
+          <Route path="/auth" element={<Authentication />} />
+          <Route
+            path="/*"
+            element={
+              <RequireAuth>
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/personas" element={<PersonaManager />} />
+                    <Route path="/device-profiles" element={<DeviceProfiles />} />
+                    <Route path="/sessions" element={<SessionReplayer />} />
+                    <Route path="/cookies" element={<CookieManager />} />
+                    <Route path="/proxies" element={<ProxyManager />} />
+                    <Route path="/scheduler" element={<Scheduler />} />
+                    <Route path="/ai-trainer" element={<AITrainer />} />
+                    <Route path="/scripts" element={<ScriptHub />} />
+                    <Route path="/referrals/campaigns" element={<CampaignBuilder />} />
+                    <Route path="/referrals/tasks" element={<TaskEngine />} />
+                    <Route path="/referrals/analytics" element={<Analytics />} />
+                    <Route path="/referrals/ai-training" element={<AITraining />} />
+                    <Route path="/settings" element={<Settings />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Layout>
+              </RequireAuth>
+            }
+          />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
