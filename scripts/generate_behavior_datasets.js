@@ -114,21 +114,16 @@ function sampleSources(){
   return s.slice(0, randInt(2, s.length))
 }
 
-async function insertWithRetry(slice, attempt=1){
-  try {
-    const { error } = await supabase.from('behavior_datasets').insert(slice, { returning: 'minimal' })
-    if (error) throw error
-  } catch (e) {
-    if (attempt >= 5) { console.error('Insert failed after retries:', e.message || e); process.exit(1) }
-    const backoff = attempt * 500
-    await new Promise(r => setTimeout(r, backoff))
-    return insertWithRetry(slice, attempt+1)
-  }
+async function upsertSlice(slice){
+  const { error } = await supabase.from('behavior_datasets').upsert(slice, { onConflict: 'persona_id', returning: 'minimal' })
+  if (error) throw error
 }
 
-async function main(){
-  const { data: personas, error } = await supabase.from('personas').select('id').limit(5000)
-  if (error) { console.error(error.message); process.exit(1) }
+async function page(personaOffset, limit){
+  const to = personaOffset + limit - 1
+  const { data: personas, error } = await supabase.from('personas').select('id').range(personaOffset, to)
+  if (error) throw error
+  if (!personas?.length) return 0
 
   const rows = personas.map(p => ({
     persona_id: p.id,
@@ -144,14 +139,33 @@ async function main(){
     source_metadata: sourceMeta(),
   }))
 
-  console.log(`Inserting ${rows.length} behavior datasets...`)
   const chunkSize = 100
   for (let i=0;i<rows.length;i+=chunkSize){
     const slice = rows.slice(i,i+chunkSize)
-    await insertWithRetry(slice)
-    console.log(`  ${Math.min(i+chunkSize, rows.length)}/${rows.length}`)
+    let attempt = 0
+    while (true){
+      try { await upsertSlice(slice); break } catch (e){
+        attempt++; if (attempt>5) { console.error('Upsert failed:', e.message || e); process.exit(1) }
+        await new Promise(r => setTimeout(r, attempt*500))
+      }
+    }
+    process.stdout.write(`  ${Math.min(i+chunkSize, rows.length)}/${rows.length} (offset ${personaOffset})\r`)
   }
-  console.log('Behavior dataset generation complete.')
+  process.stdout.write('\n')
+  return rows.length
+}
+
+async function main(){
+  const pageSize = 1000
+  let offset = 0
+  let total = 0
+  while (true){
+    const inserted = await page(offset, pageSize)
+    if (!inserted) break
+    total += inserted
+    offset += pageSize
+  }
+  console.log(`Behavior dataset generation complete. Total processed: ${total}`)
 }
 
 main().catch(e => { console.error(e); process.exit(1) })
