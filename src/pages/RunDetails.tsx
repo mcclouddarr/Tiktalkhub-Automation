@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import { getSignedUrl } from '@/lib/storage'
 
 const supabase = createClient(import.meta.env.VITE_SUPABASE_URL!, import.meta.env.VITE_SUPABASE_ANON_KEY!)
 
@@ -11,6 +12,8 @@ export default function RunDetails(){
   const { id } = useParams()
   const [run, setRun] = useState<any>(null)
   const [logs, setLogs] = useState<any[]>([])
+  const [traceFile, setTraceFile] = useState<string>('')
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => { (async () => {
     if (!id) return
@@ -18,7 +21,20 @@ export default function RunDetails(){
     setRun(r || null)
     const { data: ls } = await supabase.from('task_logs').select('*').eq('run_id', id).order('ts', { ascending: true }).limit(1000)
     setLogs(ls || [])
+    const lastTrace = (ls || []).filter((l:any) => l.message === 'trace_uploaded').pop()
+    if (lastTrace?.data?.file) setTraceFile(lastTrace.data.file)
   })() }, [id])
+
+  async function downloadTrace(){
+    if (!traceFile) return
+    try{
+      setDownloading(true)
+      const url = await getSignedUrl('logs', traceFile, 120)
+      window.open(url, '_blank')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <div className='space-y-6'>
@@ -31,7 +47,7 @@ export default function RunDetails(){
             <div><div className='text-muted-foreground'>Finished</div><div>{run?.finished_at ? new Date(run.finished_at).toLocaleString() : '-'}</div></div>
             <div>
               <div className='text-muted-foreground'>Trace</div>
-              <Button size='sm' variant='outline' disabled>Download (via Storage)</Button>
+              <Button size='sm' variant='outline' onClick={downloadTrace} disabled={!traceFile || downloading}>{downloading ? 'Preparing...' : (traceFile ? 'Download' : 'Unavailable')}</Button>
             </div>
           </div>
         </CardContent>
