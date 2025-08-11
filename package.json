@@ -1,7 +1,7 @@
 {
   "name": "tiktalkhub-automation",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "productName": "Tiktalkhub Automation",
   "main": "index.js",
@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "electron:dev": "npm run build && electron .",
     "electron:pack": "node electron/prepack.js && electron-builder --win --x64",
-    "electron:pack:ia32": "node electron/prepack.js && electron-builder --win --ia32"
+    "electron:pack:ia32": "node electron/prepack.js && electron-builder --win --ia32",
+    "postinstall": "playwright install chromium || true"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -66,9 +67,11 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
-          "zod": "^3.25.76",
-      "dotenv": "^16.4.5"
-    },
+    "zod": "^3.25.76",
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2",
+    "playwright": "^1.46.1"
+  },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@tailwindcss/typography": "^0.5.16",
