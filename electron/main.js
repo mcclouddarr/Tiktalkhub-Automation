@@ -1,13 +1,16 @@
-/* eslint-disable */
-const { app, BrowserWindow } = require('electron')
-const path = require('path')
-const { spawn } = require('child_process')
-require('dotenv').config({ path: path.join(process.cwd(), '.env') })
+import { app, BrowserWindow } from 'electron'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { spawn } from 'child_process'
+import dotenv from 'dotenv'
 
-// App name
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+dotenv.config({ path: path.join(process.cwd(), '.env') })
+
 app.setName('Tiktalkhub Automation')
 
-// Hardcoded browser path for Windows (can be adjusted later)
 const PHANTOM_EXECUTABLE_DEFAULT = 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 const PHANTOM_EXTRA_ARGS_DEFAULT = '--remote-debugging-port=9222 --force-webrtc-ip-handling-policy=disable_non_proxied_udp --disable-webrtc-multiple-routes --no-default-browser-check --no-first-run'
 const BEHAVIOR_DEFAULTS_DEFAULT = '{"delayMultiplier":1.2,"randomness":0.25}'
@@ -42,11 +45,9 @@ function createWindow(){
 }
 
 app.whenReady().then(() => {
-  // Start background services
   startService(path.join('scripts','runner','server.js'))
   startService(path.join('scripts','scheduler','worker.js'))
   startService(path.join('scripts','proxies','score_worker.js'))
-  // Create UI
   createWindow()
 
   app.on('activate', () => {

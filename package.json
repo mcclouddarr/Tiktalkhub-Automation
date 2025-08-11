@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "productName": "Tiktalkhub Automation",
+  "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
