@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/components/ui/use-toast";
 import { Brain, Wand2, ShieldAlert, CheckCircle2, ThumbsUp, ThumbsDown, Play, Pause, RefreshCw, Activity } from "lucide-react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(import.meta.env.VITE_SUPABASE_URL!, import.meta.env.VITE_SUPABASE_ANON_KEY!);
 
 interface Suggestion {
   id: string;
@@ -49,6 +52,8 @@ export default function AITrainer() {
   const [training, setTraining] = useState(true);
   const [search, setSearch] = useState("");
   const [suggestions, setSuggestions] = useState(mockSuggestions);
+  const [personaId, setPersonaId] = useState("");
+  const [targetUrl, setTargetUrl] = useState("");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -65,6 +70,15 @@ export default function AITrainer() {
     toast({ title: "Dismissed", description: s.title });
     setSuggestions((prev) => prev.filter((x) => x.id !== s.id));
   };
+
+  async function createAndStartTask(){
+    if (!personaId) return toast({ title: 'Select a persona id' })
+    const { data: task, error } = await supabase.from('tasks').insert({ persona_id: personaId, task_type: 'script', execution_mode: 'manual', target_url: targetUrl || null }).select('*').single()
+    if (error) return toast({ title: 'Create task failed', description: error.message })
+    const { error: fnErr } = await supabase.functions.invoke('taskController', { body: { action: 'start', task_id: task.id } })
+    if (fnErr) return toast({ title: 'Start failed', description: fnErr.message })
+    toast({ title: 'Task started', description: task.id })
+  }
 
   return (
     <div className="space-y-6">
@@ -84,6 +98,19 @@ export default function AITrainer() {
           </div>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Create Quick Task</span>
+            <div className="flex gap-2 items-center">
+              <Input placeholder="Persona ID" value={personaId} onChange={(e)=> setPersonaId(e.target.value)} className="w-64" />
+              <Input placeholder="Target URL (optional)" value={targetUrl} onChange={(e)=> setTargetUrl(e.target.value)} className="w-72" />
+              <Button onClick={createAndStartTask}>Create & Start</Button>
+            </div>
+          </CardTitle>
+        </CardHeader>
+      </Card>
 
       <Tabs defaultValue="suggestions" className="space-y-4">
         <TabsList>

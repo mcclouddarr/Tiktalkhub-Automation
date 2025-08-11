@@ -14,6 +14,7 @@ import {
   XCircle,
   Activity
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const recentActivities = [
@@ -68,13 +69,17 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <Activity className="h-4 w-4 mr-2" />
-            View Logs
+          <Button variant="outline" asChild>
+            <Link to="/task-engine">
+              <Activity className="h-4 w-4 mr-2" />
+              Create Task
+            </Link>
           </Button>
-          <Button className="bg-gradient-primary hover:opacity-90">
-            <Play className="h-4 w-4 mr-2" />
-            Start Campaign
+          <Button className="bg-gradient-primary hover:opacity-90" asChild>
+            <Link to="/ai-trainer">
+              <Play className="h-4 w-4 mr-2" />
+              Vanta AI
+            </Link>
           </Button>
         </div>
       </div>
