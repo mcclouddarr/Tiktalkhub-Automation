@@ -2,12 +2,41 @@ import { app, BrowserWindow } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { spawn } from 'child_process'
-import dotenv from 'dotenv'
+import fs from 'fs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-dotenv.config({ path: path.join(process.cwd(), '.env') })
+function loadEnvSafely() {
+  const candidates = [
+    path.join(__dirname, '.env'),
+    path.join(process.resourcesPath || process.cwd(), '.env'),
+    path.join(process.cwd(), '.env')
+  ]
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const contents = fs.readFileSync(p, 'utf8')
+        for (const rawLine of contents.split(/\r?\n/)) {
+          const line = rawLine.trim()
+          if (!line || line.startsWith('#')) continue
+          const cleaned = line.startsWith('export ') ? line.slice(7) : line
+          const eqIndex = cleaned.indexOf('=')
+          if (eqIndex === -1) continue
+          const key = cleaned.slice(0, eqIndex).trim()
+          let value = cleaned.slice(eqIndex + 1).trim()
+          if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith('\'') && value.endsWith('\''))) {
+            value = value.slice(1, -1)
+          }
+          if (process.env[key] === undefined) process.env[key] = value
+        }
+        break
+      }
+    } catch {}
+  }
+}
+
+loadEnvSafely()
 
 app.setName('Tiktalkhub Automation')
 
