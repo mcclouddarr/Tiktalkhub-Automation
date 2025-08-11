@@ -1,63 +1,95 @@
 -- Vanta AI schema
 
-create table if not exists public.vanta_fingerprint_scores (
-  id uuid primary key default uuid_generate_v4(),
-  device_id uuid references public.devices(id) on delete cascade,
-  success_rate numeric default 0.5,
-  total_runs integer default 0,
-  last_used_at timestamptz,
-  platform_meta jsonb,
-  created_at timestamptz default now()
+-- Fingerprint Scores Table
+CREATE TABLE IF NOT EXISTS public.vanta_fingerprint_scores (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  device_id UUID REFERENCES public.devices(id) ON DELETE CASCADE,
+  success_rate NUMERIC DEFAULT 0.5,
+  total_runs INTEGER DEFAULT 0,
+  last_used_at TIMESTAMPTZ,
+  platform_meta JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
-create index if not exists vanta_fp_scores_device_idx on public.vanta_fingerprint_scores(device_id);
+CREATE INDEX IF NOT EXISTS vanta_fp_scores_device_idx ON public.vanta_fingerprint_scores(device_id);
 
-create table if not exists public.vanta_proxy_scores (
-  id uuid primary key default uuid_generate_v4(),
-  proxy_id uuid references public.proxies(id) on delete cascade,
-  success_rate numeric default 0.5,
-  total_runs integer default 0,
-  last_used_at timestamptz,
-  geo_meta jsonb,
-  created_at timestamptz default now()
+-- Proxy Scores Table
+CREATE TABLE IF NOT EXISTS public.vanta_proxy_scores (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  proxy_id UUID REFERENCES public.proxies(id) ON DELETE CASCADE,
+  success_rate NUMERIC DEFAULT 0.5,
+  total_runs INTEGER DEFAULT 0,
+  last_used_at TIMESTAMPTZ,
+  geo_meta JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
-create index if not exists vanta_proxy_scores_proxy_idx on public.vanta_proxy_scores(proxy_id);
+CREATE INDEX IF NOT EXISTS vanta_proxy_scores_proxy_idx ON public.vanta_proxy_scores(proxy_id);
 
-create table if not exists public.vanta_behavior_profiles (
-  id uuid primary key default uuid_generate_v4(),
-  name text not null,
-  parameters jsonb not null,
-  created_at timestamptz default now()
+-- Behavior Profiles Table
+CREATE TABLE IF NOT EXISTS public.vanta_behavior_profiles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  parameters JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-create table if not exists public.vanta_session_feedback (
-  id uuid primary key default uuid_generate_v4(),
-  run_id uuid references public.task_runs(id) on delete cascade,
-  persona_id uuid references public.personas(id) on delete set null,
-  device_id uuid references public.devices(id) on delete set null,
-  proxy_id uuid references public.proxies(id) on delete set null,
-  outcome text, -- pass|fail|blocked
-  signals jsonb, -- captcha, 403, redirect, blank, timings
-  created_at timestamptz default now()
+-- Session Feedback Table (Removed reference to non-existent task_runs)
+CREATE TABLE IF NOT EXISTS public.vanta_session_feedback (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  run_id UUID, -- Removed foreign key reference
+  persona_id UUID REFERENCES public.personas(id) ON DELETE SET NULL,
+  device_id UUID REFERENCES public.devices(id) ON DELETE SET NULL,
+  proxy_id UUID REFERENCES public.proxies(id) ON DELETE SET NULL,
+  outcome TEXT, -- pass|fail|blocked
+  signals JSONB, -- captcha, 403, redirect, blank, timings
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
-create index if not exists vanta_feedback_run_idx on public.vanta_session_feedback(run_id);
+CREATE INDEX IF NOT EXISTS vanta_feedback_run_idx ON public.vanta_session_feedback(run_id);
 
-alter table public.vanta_fingerprint_scores enable row level security;
-alter table public.vanta_proxy_scores enable row level security;
-alter table public.vanta_behavior_profiles enable row level security;
-alter table public.vanta_session_feedback enable row level security;
+-- Enable Row Level Security
+ALTER TABLE public.vanta_fingerprint_scores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vanta_proxy_scores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vanta_behavior_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vanta_session_feedback ENABLE ROW LEVEL SECURITY;
 
-create policy if not exists "r:w" on public.vanta_fingerprint_scores for select using (auth.role() = 'authenticated');
-create policy if not exists "i:w" on public.vanta_fingerprint_scores for insert with check (auth.role() = 'authenticated');
-create policy if not exists "u:w" on public.vanta_fingerprint_scores for update using (auth.role() = 'authenticated');
+-- Policies for Fingerprint Scores
+CREATE POLICY "Allow read for authenticated users" ON public.vanta_fingerprint_scores 
+FOR SELECT USING (auth.role() = 'authenticated');
 
-create policy if not exists "r:wp" on public.vanta_proxy_scores for select using (auth.role() = 'authenticated');
-create policy if not exists "i:wp" on public.vanta_proxy_scores for insert with check (auth.role() = 'authenticated');
-create policy if not exists "u:wp" on public.vanta_proxy_scores for update using (auth.role() = 'authenticated');
+CREATE POLICY "Allow insert for authenticated users" ON public.vanta_fingerprint_scores 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
-create policy if not exists "r:bp" on public.vanta_behavior_profiles for select using (auth.role() = 'authenticated');
-create policy if not exists "i:bp" on public.vanta_behavior_profiles for insert with check (auth.role() = 'authenticated');
+CREATE POLICY "Allow update for authenticated users" ON public.vanta_fingerprint_scores 
+FOR UPDATE USING (auth.role() = 'authenticated');
 
-create policy if not exists "r:fb" on public.vanta_session_feedback for select using (auth.role() = 'authenticated');
-create policy if not exists "i:fb" on public.vanta_session_feedback for insert with check (auth.role() = 'authenticated');
+-- Policies for Proxy Scores
+CREATE POLICY "Allow read for authenticated users" ON public.vanta_proxy_scores 
+FOR SELECT USING (auth.role() = 'authenticated');
 
-select pg_notify('pgrst', 'reload schema');
+CREATE POLICY "Allow insert for authenticated users" ON public.vanta_proxy_scores 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow update for authenticated users" ON public.vanta_proxy_scores 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- Policies for Behavior Profiles
+CREATE POLICY "Allow read for authenticated users" ON public.vanta_behavior_profiles 
+FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow insert for authenticated users" ON public.vanta_behavior_profiles 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow update for authenticated users" ON public.vanta_behavior_profiles 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- Policies for Session Feedback
+CREATE POLICY "Allow read for authenticated users" ON public.vanta_session_feedback 
+FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow insert for authenticated users" ON public.vanta_session_feedback 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow update for authenticated users" ON public.vanta_session_feedback 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- Force PostgREST to reload schema
+SELECT pg_notify('pgrst', 'reload schema');
