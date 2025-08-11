@@ -102,8 +102,16 @@
       "electron/main.js",
       "electron/prepack.js",
       "index.js",
-      "package.json",
-      ".env"
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".env",
+        "to": ".env"
+      }
+    ],
+    "asarUnpack": [
+      "scripts/**"
     ],
     "win": {
       "target": ["nsis"],

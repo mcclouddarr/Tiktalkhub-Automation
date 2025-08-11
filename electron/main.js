@@ -7,32 +7,41 @@ import fs from 'fs'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+function tryLoadEnvAt(p){
+  try {
+    if (fs.existsSync(p)) {
+      const contents = fs.readFileSync(p, 'utf8')
+      for (const rawLine of contents.split(/\r?\n/)) {
+        const line = rawLine.trim()
+        if (!line || line.startsWith('#')) continue
+        const cleaned = line.startsWith('export ') ? line.slice(7) : line
+        const eqIndex = cleaned.indexOf('=')
+        if (eqIndex === -1) continue
+        const key = cleaned.slice(0, eqIndex).trim()
+        let value = cleaned.slice(eqIndex + 1).trim()
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith('\'') && value.endsWith('\''))) {
+          value = value.slice(1, -1)
+        }
+        if (process.env[key] === undefined) process.env[key] = value
+      }
+      return true
+    }
+  } catch {}
+  return false
+}
+
 function loadEnvSafely() {
   const candidates = [
     path.join(__dirname, '.env'),
+    path.join(__dirname, '..', '.env'),
     path.join(process.resourcesPath || process.cwd(), '.env'),
+    // packaged asar location
+    path.join(process.resourcesPath || '', 'app.asar', '.env'),
+    // cwd fallback
     path.join(process.cwd(), '.env')
-  ]
+  ].filter(Boolean)
   for (const p of candidates) {
-    try {
-      if (fs.existsSync(p)) {
-        const contents = fs.readFileSync(p, 'utf8')
-        for (const rawLine of contents.split(/\r?\n/)) {
-          const line = rawLine.trim()
-          if (!line || line.startsWith('#')) continue
-          const cleaned = line.startsWith('export ') ? line.slice(7) : line
-          const eqIndex = cleaned.indexOf('=')
-          if (eqIndex === -1) continue
-          const key = cleaned.slice(0, eqIndex).trim()
-          let value = cleaned.slice(eqIndex + 1).trim()
-          if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith('\'') && value.endsWith('\''))) {
-            value = value.slice(1, -1)
-          }
-          if (process.env[key] === undefined) process.env[key] = value
-        }
-        break
-      }
-    } catch {}
+    if (tryLoadEnvAt(p)) break
   }
 }
 
@@ -57,8 +66,9 @@ function startService(scriptRelPath, extraEnv = {}){
     BEHAVIOR_DEFAULTS: process.env.BEHAVIOR_DEFAULTS || BEHAVIOR_DEFAULTS_DEFAULT,
     ...extraEnv,
   }
-  const cmd = process.platform === 'win32' ? 'node.exe' : 'node'
-  const child = spawn(cmd, [scriptPath], { env, stdio: 'inherit' })
+  // Use the Electron-bundled Node runtime to execute JS scripts
+  const nodeRuntime = process.execPath
+  const child = spawn(nodeRuntime, [scriptPath], { env, stdio: 'inherit' })
   children.push(child)
   child.on('exit', (code) => { console.log(`${scriptRelPath} exited`, code) })
 }
@@ -74,6 +84,9 @@ function createWindow(){
 }
 
 app.whenReady().then(() => {
+  // attempt loading env again after app is ready (app.getAppPath resolves inside asar)
+  try { const p = path.join(app.getAppPath(), '.env'); tryLoadEnvAt(p) } catch{}
+
   startService(path.join('scripts','runner','server.js'))
   startService(path.join('scripts','scheduler','worker.js'))
   startService(path.join('scripts','proxies','score_worker.js'))
