@@ -1,181 +1,255 @@
 -- Enable required extensions
-create extension if not exists "uuid-ossp";
-create extension if not exists pgcrypto;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- 1. devices
-create table if not exists public.devices (
-  id uuid primary key default uuid_generate_v4(),
-  device_name text not null,
-  browser_type text not null,
-  viewport text,
-  os text,
-  user_agent text,
-  platform text,
-  fingerprint_config jsonb,
-  real_device_emulation_profile_url text,
-  status text default 'active',
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS public.devices (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  device_name TEXT NOT NULL,
+  browser_type TEXT NOT NULL,
+  viewport TEXT,
+  os TEXT,
+  user_agent TEXT,
+  platform TEXT,
+  fingerprint_config JSONB,
+  real_device_emulation_profile_url TEXT,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 2. proxies
-create table if not exists public.proxies (
-  id uuid primary key default uuid_generate_v4(),
-  ip text not null,
-  port integer not null,
-  username text,
-  password text,
-  proxy_type text not null,
-  status text default 'active',
-  last_check_time timestamptz,
-  health_score numeric,
-  location_metadata jsonb,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS public.proxies (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  ip TEXT NOT NULL,
+  port INTEGER NOT NULL,
+  username TEXT,
+  password TEXT,
+  proxy_type TEXT NOT NULL,
+  status TEXT DEFAULT 'active',
+  last_check_time TIMESTAMPTZ,
+  health_score NUMERIC,
+  location_metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 3. personas (before cookies to avoid FK cycle)
-create table if not exists public.personas (
-  id uuid primary key default uuid_generate_v4(),
-  name text not null,
-  age integer,
-  gender text,
-  backstory text,
-  profile_picture text,
-  device_id uuid,
-  cookie_id uuid, -- optional link (no FK to avoid cycle with cookies)
-  proxy_id uuid,
-  tags text[],
-  status text default 'active',
-  created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  foreign key (device_id) references public.devices(id) on delete set null,
-  foreign key (proxy_id) references public.proxies(id) on delete set null
+CREATE TABLE IF NOT EXISTS public.personas (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  age INTEGER,
+  gender TEXT,
+  backstory TEXT,
+  profile_picture TEXT,
+  device_id UUID,
+  cookie_id UUID, -- optional link (no FK to avoid cycle with cookies)
+  proxy_id UUID,
+  tags TEXT[],
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  FOREIGN KEY (device_id) REFERENCES public.devices(id) ON DELETE SET NULL,
+  FOREIGN KEY (proxy_id) REFERENCES public.proxies(id) ON DELETE SET NULL
 );
 
 -- 4. cookies (after personas)
-create table if not exists public.cookies (
-  id uuid primary key default uuid_generate_v4(),
-  persona_id uuid,
-  cookie_blob jsonb,
-  expires_at timestamptz,
-  created_at timestamptz default now(),
-  foreign key (persona_id) references public.personas(id) on delete set null
+CREATE TABLE IF NOT EXISTS public.cookies (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  persona_id UUID,
+  cookie_blob JSONB,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE SET NULL
 );
 
 -- 5. sessions
-create table if not exists public.sessions (
-  id uuid primary key default uuid_generate_v4(),
-  persona_id uuid not null,
-  device_id uuid,
-  start_time timestamptz default now(),
-  end_time timestamptz,
-  session_type text,
-  proxy_id uuid,
-  activity_log jsonb,
-  status text,
-  created_at timestamptz default now(),
-  foreign key (persona_id) references public.personas(id) on delete cascade,
-  foreign key (device_id) references public.devices(id) on delete set null,
-  foreign key (proxy_id) references public.proxies(id) on delete set null
+CREATE TABLE IF NOT EXISTS public.sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  persona_id UUID NOT NULL,
+  device_id UUID,
+  start_time TIMESTAMPTZ DEFAULT NOW(),
+  end_time TIMESTAMPTZ,
+  session_type TEXT,
+  proxy_id UUID,
+  activity_log JSONB,
+  status TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE CASCADE,
+  FOREIGN KEY (device_id) REFERENCES public.devices(id) ON DELETE SET NULL,
+  FOREIGN KEY (proxy_id) REFERENCES public.proxies(id) ON DELETE SET NULL
 );
 
 -- 6. referrals
-create table if not exists public.referrals (
-  id uuid primary key default uuid_generate_v4(),
-  source_persona_id uuid,
-  target_link text not null,
-  click_time timestamptz,
-  conversion_time timestamptz,
-  status text,
-  created_at timestamptz default now(),
-  foreign key (source_persona_id) references public.personas(id) on delete set null
+CREATE TABLE IF NOT EXISTS public.referrals (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  source_persona_id UUID,
+  target_link TEXT NOT NULL,
+  click_time TIMESTAMPTZ,
+  conversion_time TIMESTAMPTZ,
+  status TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  FOREIGN KEY (source_persona_id) REFERENCES public.personas(id) ON DELETE SET NULL
 );
 
 -- 7. tasks
-create table if not exists public.tasks (
-  id uuid primary key default uuid_generate_v4(),
-  persona_id uuid,
-  task_type text,
-  execution_mode text,
-  target_url text,
-  scheduled_time timestamptz,
-  status text,
-  created_at timestamptz default now(),
-  foreign key (persona_id) references public.personas(id) on delete set null
+CREATE TABLE IF NOT EXISTS public.tasks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  persona_id UUID,
+  task_type TEXT,
+  execution_mode TEXT,
+  target_url TEXT,
+  scheduled_time TIMESTAMPTZ,
+  status TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  FOREIGN KEY (persona_id) REFERENCES public.personas(id) ON DELETE SET NULL
 );
 
 -- 8. vanta_updates
-create table if not exists public.vanta_updates (
-  id uuid primary key default uuid_generate_v4(),
-  change_type text,
-  payload jsonb,
-  model_version text,
-  update_notes text,
-  updated_at timestamptz default now()
+CREATE TABLE IF NOT EXISTS public.vanta_updates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  change_type TEXT,
+  payload JSONB,
+  model_version TEXT,
+  update_notes TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Realtime publication
-alter publication supabase_realtime add table public.sessions;
-alter publication supabase_realtime add table public.personas;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.sessions;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.personas;
 
 -- Updated timestamps triggers
-create or replace function public.set_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-create trigger set_devices_updated_at
-before update on public.devices
-for each row execute procedure public.set_updated_at();
+CREATE TRIGGER set_devices_updated_at
+BEFORE UPDATE ON public.devices
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-create trigger set_personas_updated_at
-before update on public.personas
-for each row execute procedure public.set_updated_at();
+CREATE TRIGGER set_personas_updated_at
+BEFORE UPDATE ON public.personas
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-create trigger set_proxies_updated_at
-before update on public.proxies
-for each row execute procedure public.set_updated_at();
+CREATE TRIGGER set_proxies_updated_at
+BEFORE UPDATE ON public.proxies
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- Basic RLS enabling and policies
-alter table public.personas enable row level security;
-alter table public.devices enable row level security;
-alter table public.sessions enable row level security;
-alter table public.proxies enable row level security;
-alter table public.cookies enable row level security;
-alter table public.referrals enable row level security;
-alter table public.tasks enable row level security;
-alter table public.vanta_updates enable row level security;
+-- Basic RLS enabling
+ALTER TABLE public.personas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.devices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.proxies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cookies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vanta_updates ENABLE ROW LEVEL SECURITY;
 
-create policy if not exists "Allow read for all auth users" on public.personas for select using (auth.role() = 'authenticated');
-create policy if not exists "Allow read for all auth users" on public.devices for select using (auth.role() = 'authenticated');
-create policy if not exists "Allow read for all auth users" on public.sessions for select using (auth.role() = 'authenticated');
-create policy if not exists "Allow read for all auth users" on public.proxies for select using (auth.role() = 'authenticated');
-create policy if not exists "Allow read for all auth users" on public.cookies for select using (auth.role() = 'authenticated');
-create policy if not exists "Allow read for all auth users" on public.referrals for select using (auth.role() = 'authenticated');
-create policy if not exists "Allow read for all auth users" on public.tasks for select using (auth.role() = 'authenticated');
-create policy if not exists "Allow read for all auth users" on public.vanta_updates for select using (auth.role() = 'authenticated');
+-- RLS Policies
+-- Select Policies
+CREATE POLICY "Allow read for authenticated users" ON public.personas 
+FOR SELECT USING (auth.role() = 'authenticated');
 
-create policy if not exists "Allow insert for all auth users" on public.personas for insert with check (auth.role() = 'authenticated');
-create policy if not exists "Allow insert for all auth users" on public.devices for insert with check (auth.role() = 'authenticated');
-create policy if not exists "Allow insert for all auth users" on public.sessions for insert with check (auth.role() = 'authenticated');
-create policy if not exists "Allow insert for all auth users" on public.proxies for insert with check (auth.role() = 'authenticated');
-create policy if not exists "Allow insert for all auth users" on public.cookies for insert with check (auth.role() = 'authenticated');
-create policy if not exists "Allow insert for all auth users" on public.referrals for insert with check (auth.role() = 'authenticated');
-create policy if not exists "Allow insert for all auth users" on public.tasks for insert with check (auth.role() = 'authenticated');
-create policy if not exists "Allow insert for all auth users" on public.vanta_updates for insert with check (auth.role() = 'authenticated');
+CREATE POLICY "Allow read for authenticated users" ON public.devices 
+FOR SELECT USING (auth.role() = 'authenticated');
 
-create policy if not exists "Allow update for all auth users" on public.personas for update using (auth.role() = 'authenticated');
-create policy if not exists "Allow update for all auth users" on public.devices for update using (auth.role() = 'authenticated');
-create policy if not exists "Allow update for all auth users" on public.sessions for update using (auth.role() = 'authenticated');
-create policy if not exists "Allow update for all auth users" on public.proxies for update using (auth.role() = 'authenticated');
-create policy if not exists "Allow update for all auth users" on public.cookies for update using (auth.role() = 'authenticated');
-create policy if not exists "Allow update for all auth users" on public.referrals for update using (auth.role() = 'authenticated');
-create policy if not exists "Allow update for all auth users" on public.tasks for update using (auth.role() = 'authenticated');
-create policy if not exists "Allow update for all auth users" on public.vanta_updates for update using (auth.role() = 'authenticated');
+CREATE POLICY "Allow read for authenticated users" ON public.sessions 
+FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow read for authenticated users" ON public.proxies 
+FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow read for authenticated users" ON public.cookies 
+FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow read for authenticated users" ON public.referrals 
+FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow read for authenticated users" ON public.tasks 
+FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow read for authenticated users" ON public.vanta_updates 
+FOR SELECT USING (auth.role() = 'authenticated');
+
+-- Insert Policies
+CREATE POLICY "Allow insert for authenticated users" ON public.personas 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow insert for authenticated users" ON public.devices 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow insert for authenticated users" ON public.sessions 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow insert for authenticated users" ON public.proxies 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow insert for authenticated users" ON public.cookies 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow insert for authenticated users" ON public.referrals 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow insert for authenticated users" ON public.tasks 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow insert for authenticated users" ON public.vanta_updates 
+FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- Update Policies
+CREATE POLICY "Allow update for authenticated users" ON public.personas 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow update for authenticated users" ON public.devices 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow update for authenticated users" ON public.sessions 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow update for authenticated users" ON public.proxies 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow update for authenticated users" ON public.cookies 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow update for authenticated users" ON public.referrals 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow update for authenticated users" ON public.tasks 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow update for authenticated users" ON public.vanta_updates 
+FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- Delete Policies (Optional, but recommended for completeness)
+CREATE POLICY "Allow delete for authenticated users" ON public.personas 
+FOR DELETE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow delete for authenticated users" ON public.devices 
+FOR DELETE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow delete for authenticated users" ON public.sessions 
+FOR DELETE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow delete for authenticated users" ON public.proxies 
+FOR DELETE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow delete for authenticated users" ON public.cookies 
+FOR DELETE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow delete for authenticated users" ON public.referrals 
+FOR DELETE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow delete for authenticated users" ON public.tasks 
+FOR DELETE USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow delete for authenticated users" ON public.vanta_updates 
+FOR DELETE USING (auth.role() = 'authenticated');
 
 -- Force PostgREST to reload schema
-select pg_notify('pgrst', 'reload schema');
+SELECT pg_notify('pgrst', 'reload schema');
