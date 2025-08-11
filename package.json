@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "productName": "Tiktalkhub Automation",
-  "main": "electron/main.js",
+  "main": "index.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -98,6 +98,7 @@
       "scripts/**/*",
       "electron/main.js",
       "electron/prepack.js",
+      "index.js",
       "package.json",
       ".env"
     ],
