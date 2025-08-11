@@ -1,14 +1,18 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "tiktalkhub-automation",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "productName": "Tiktalkhub Automation",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "npm run build && electron .",
+    "electron:pack": "node electron/prepack.js && electron-builder --win --x64",
+    "electron:pack:ia32": "node electron/prepack.js && electron-builder --win --ia32"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -71,6 +75,9 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
+    "dotenv": "^16.4.5",
+    "electron": "^29.4.5",
+    "electron-builder": "^24.13.3",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
@@ -81,5 +88,26 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19"
+  },
+  "build": {
+    "appId": "com.tiktalkhub.automation",
+    "productName": "Tiktalkhub Automation",
+    "files": [
+      "dist/**/*",
+      "scripts/**/*",
+      "electron/main.js",
+      "electron/prepack.js",
+      "package.json",
+      ".env"
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "public/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false
+    }
   }
 }

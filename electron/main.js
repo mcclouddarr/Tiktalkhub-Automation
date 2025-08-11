@@ -1,0 +1,63 @@
+/* eslint-disable */
+const { app, BrowserWindow } = require('electron')
+const path = require('path')
+const { spawn } = require('child_process')
+require('dotenv').config({ path: path.join(process.cwd(), '.env') })
+
+// App name
+app.setName('Tiktalkhub Automation')
+
+// Hardcoded browser path for Windows (can be adjusted later)
+const PHANTOM_EXECUTABLE_DEFAULT = 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+const PHANTOM_EXTRA_ARGS_DEFAULT = '--remote-debugging-port=9222 --force-webrtc-ip-handling-policy=disable_non_proxied_udp --disable-webrtc-multiple-routes --no-default-browser-check --no-first-run'
+const BEHAVIOR_DEFAULTS_DEFAULT = '{"delayMultiplier":1.2,"randomness":0.25}'
+
+let children = []
+
+function startService(scriptRelPath, extraEnv = {}){
+  const scriptPath = path.join(process.resourcesPath || process.cwd(), scriptRelPath)
+  const env = {
+    ...process.env,
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    PHANTOM_EXECUTABLE: process.env.PHANTOM_EXECUTABLE || PHANTOM_EXECUTABLE_DEFAULT,
+    PHANTOM_EXTRA_ARGS: process.env.PHANTOM_EXTRA_ARGS || PHANTOM_EXTRA_ARGS_DEFAULT,
+    BEHAVIOR_DEFAULTS: process.env.BEHAVIOR_DEFAULTS || BEHAVIOR_DEFAULTS_DEFAULT,
+    ...extraEnv,
+  }
+  const cmd = process.platform === 'win32' ? 'node.exe' : 'node'
+  const child = spawn(cmd, [scriptPath], { env, stdio: 'inherit' })
+  children.push(child)
+  child.on('exit', (code) => { console.log(`${scriptRelPath} exited`, code) })
+}
+
+function createWindow(){
+  const win = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    webPreferences: { nodeIntegration: false, contextIsolation: true }
+  })
+  const indexPath = path.join(process.resourcesPath || process.cwd(), 'dist', 'index.html')
+  win.loadFile(indexPath)
+}
+
+app.whenReady().then(() => {
+  // Start background services
+  startService(path.join('scripts','runner','server.js'))
+  startService(path.join('scripts','scheduler','worker.js'))
+  startService(path.join('scripts','proxies','score_worker.js'))
+  // Create UI
+  createWindow()
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+  })
+})
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('before-quit', () => {
+  children.forEach((c) => { try { c.kill() } catch {} })
+})
