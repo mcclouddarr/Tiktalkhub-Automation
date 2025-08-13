@@ -31,12 +31,15 @@ function tryLoadEnvAt(p){
 }
 
 function loadEnvSafely() {
+  const resources = (process.resourcesPath || '')
   const candidates = [
     path.join(__dirname, '.env'),
     path.join(__dirname, '..', '.env'),
-    path.join(process.resourcesPath || process.cwd(), '.env'),
+    path.join(resources, '.env'),
     // packaged asar location
-    path.join(process.resourcesPath || '', 'app.asar', '.env'),
+    path.join(resources, 'app.asar', '.env'),
+    // unpacked dir used by electron-builder for extraResources
+    path.join(resources, 'app.asar.unpacked', '.env'),
     // cwd fallback
     path.join(process.cwd(), '.env')
   ].filter(Boolean)

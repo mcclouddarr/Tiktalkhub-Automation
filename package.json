@@ -1,7 +1,7 @@
 {
   "name": "tiktalkhub-automation",
   "private": true,
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "productName": "Tiktalkhub Automation",
   "main": "index.js",
