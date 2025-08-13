@@ -113,9 +113,11 @@ app.whenReady().then(() => {
   // attempt loading env again after app is ready (app.getAppPath resolves inside asar)
   try { const p = path.join(app.getAppPath(), '.env'); tryLoadEnvAt(p) } catch{}
 
-  startService(path.join('scripts','runner','server.js'))
-  startService(path.join('scripts','scheduler','worker.js'))
-  startService(path.join('scripts','proxies','score_worker.js'))
+  if (!process.env.DISABLE_SERVICES) {
+    startService(path.join('scripts','runner','server.js'))
+    startService(path.join('scripts','scheduler','worker.js'))
+    startService(path.join('scripts','proxies','score_worker.js'))
+  }
   createWindow()
 
   app.on('activate', () => {
