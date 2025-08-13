@@ -116,6 +116,77 @@ CREATE TABLE IF NOT EXISTS public.vanta_updates (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Groups for profiles
+CREATE TABLE IF NOT EXISTS public.groups (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.groups ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "r:groups" ON public.groups FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY IF NOT EXISTS "i:groups" ON public.groups FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- Profile to group mapping (many-to-one simplified via personas.group_id)
+ALTER TABLE IF NOT EXISTS public.personas ADD COLUMN IF NOT EXISTS group_id UUID;
+ALTER TABLE public.personas ADD CONSTRAINT personas_group_fk FOREIGN KEY (group_id) REFERENCES public.groups(id) ON DELETE SET NULL;
+
+-- Tags: store as array on personas
+ALTER TABLE IF NOT EXISTS public.personas ADD COLUMN IF NOT EXISTS tags TEXT[];
+
+-- Schedules
+CREATE TABLE IF NOT EXISTS public.schedules (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  cron TEXT NOT NULL,
+  engine TEXT DEFAULT 'chromium',
+  template_id UUID,
+  group_id UUID,
+  variables JSONB,
+  enabled BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  FOREIGN KEY (template_id) REFERENCES public.task_templates(id) ON DELETE SET NULL,
+  FOREIGN KEY (group_id) REFERENCES public.groups(id) ON DELETE SET NULL
+);
+ALTER TABLE public.schedules ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "r:schedules" ON public.schedules FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY IF NOT EXISTS "i:schedules" ON public.schedules FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY IF NOT EXISTS "u:schedules" ON public.schedules FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- Action logs
+CREATE TABLE IF NOT EXISTS public.action_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  actor TEXT,
+  action TEXT,
+  target_type TEXT,
+  target_id UUID,
+  details JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.action_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "r:action_logs" ON public.action_logs FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY IF NOT EXISTS "i:action_logs" ON public.action_logs FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- Marketplace categories (optional)
+CREATE TABLE IF NOT EXISTS public.template_categories (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.template_categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "r:template_categories" ON public.template_categories FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY IF NOT EXISTS "i:template_categories" ON public.template_categories FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- Optional relation table
+CREATE TABLE IF NOT EXISTS public.template_category_map (
+  template_id UUID REFERENCES public.task_templates(id) ON DELETE CASCADE,
+  category_id UUID REFERENCES public.template_categories(id) ON DELETE CASCADE,
+  PRIMARY KEY (template_id, category_id)
+);
+ALTER TABLE public.template_category_map ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "r:template_category_map" ON public.template_category_map FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY IF NOT EXISTS "i:template_category_map" ON public.template_category_map FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
 -- Realtime publication
 ALTER PUBLICATION supabase_realtime ADD TABLE public.sessions;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.personas;

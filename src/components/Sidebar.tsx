@@ -19,7 +19,8 @@ import {
   Target,
   TrendingUp,
   Zap,
-  LogIn
+  LogIn,
+  ShoppingBag
 } from "lucide-react";
 
 interface SidebarProps {
@@ -42,6 +43,9 @@ const navigation: NavigationItem[] = [
   { name: "Cookie Manager", href: "/cookies", icon: Cookie },
   { name: "Proxy Manager", href: "/proxies", icon: Shield },
   { name: "Task Scheduler", href: "/scheduler", icon: Calendar },
+  { name: "Synchronizer", href: "/synchronizer", icon: Bot },
+  { name: "RPA Builder", href: "/rpa", icon: Code },
+  { name: "Marketplace", href: "/marketplace", icon: ShoppingBag },
   { name: "Vanta AI Panel", href: "/ai-trainer", icon: Brain },
   { name: "Script Hub", href: "/scripts", icon: Code },
   {
