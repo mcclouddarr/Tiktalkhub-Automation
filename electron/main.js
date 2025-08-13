@@ -59,8 +59,18 @@ const BEHAVIOR_DEFAULTS_DEFAULT = '{"delayMultiplier":1.2,"randomness":0.25}'
 let children = []
 
 function startService(scriptRelPath, extraEnv = {}){
-  const basePath = app.isPackaged ? app.getAppPath() : process.cwd()
-  const scriptPath = path.join(basePath, scriptRelPath)
+  let scriptPath
+  if (app.isPackaged) {
+    const resources = process.resourcesPath
+    const unpackedPath = path.join(resources, 'app.asar.unpacked', scriptRelPath)
+    if (fs.existsSync(unpackedPath)) {
+      scriptPath = unpackedPath
+    } else {
+      scriptPath = path.join(app.getAppPath(), scriptRelPath)
+    }
+  } else {
+    scriptPath = path.join(process.cwd(), scriptRelPath)
+  }
   const env = {
     ...process.env,
     SUPABASE_URL: process.env.SUPABASE_URL,
@@ -72,7 +82,7 @@ function startService(scriptRelPath, extraEnv = {}){
     ...extraEnv,
   }
   const nodeRuntime = process.execPath
-  const child = spawn(nodeRuntime, [scriptPath], { env, stdio: 'inherit' })
+  const child = spawn(nodeRuntime, [scriptPath], { env, stdio: 'inherit', windowsHide: true })
   children.push(child)
   child.on('exit', (code) => { console.log(`${scriptRelPath} exited`, code) })
 }
