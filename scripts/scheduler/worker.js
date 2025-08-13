@@ -41,7 +41,18 @@ async function buildPayload(task){
       cookies = arr
     }
   }
-  return { launchConfig, cookies, target: task.target_url || null, steps: [] }
+  // attempt to get engine from associated device
+  let engine = 'chromium'
+  try {
+    if (task.persona_id){
+      const { data: persona } = await supabase.from('personas').select('device_id').eq('id', task.persona_id).maybeSingle()
+      if (persona?.device_id){
+        const { data: device } = await supabase.from('devices').select('engine').eq('id', persona.device_id).maybeSingle()
+        if (device?.engine) engine = device.engine
+      }
+    }
+  } catch{}
+  return { engine, launchConfig, cookies, target: task.target_url || null, steps: [] }
 }
 
 async function dequeueAndStart(){

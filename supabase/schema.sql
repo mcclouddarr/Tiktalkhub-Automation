@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS public.devices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   device_name TEXT NOT NULL,
   browser_type TEXT NOT NULL,
+  engine TEXT DEFAULT 'chromium',
   viewport TEXT,
   os TEXT,
   user_agent TEXT,

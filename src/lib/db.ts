@@ -20,6 +20,7 @@ export type DeviceRow = {
   id: string;
   device_name: string;
   browser_type: string;
+  engine: string | null;
   viewport: string | null;
   os: string | null;
   user_agent: string | null;
