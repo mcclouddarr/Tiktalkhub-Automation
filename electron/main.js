@@ -115,6 +115,7 @@ app.whenReady().then(() => {
 
   if (!process.env.DISABLE_SERVICES) {
     startService(path.join('scripts','runner','server.js'))
+    startService(path.join('scripts','runner','syncHub.js'))
     startService(path.join('scripts','scheduler','worker.js'))
     startService(path.join('scripts','proxies','score_worker.js'))
   }

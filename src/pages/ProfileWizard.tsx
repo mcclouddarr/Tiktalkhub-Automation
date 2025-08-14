@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
+import { createDevice } from '@/lib/db'
 
 export default function ProfileWizard(){
   const [tab, setTab] = useState<'general'|'proxy'|'platform'|'fingerprint'|'advanced'>('general')
@@ -208,7 +209,27 @@ export default function ProfileWizard(){
             )}
 
             <div className="flex justify-end mt-6">
-              <Button className="bg-gradient-primary">Save Profile</Button>
+              <Button className="bg-gradient-primary" onClick={async ()=>{
+                const payload:any = {
+                  device_name: form.name || 'Unnamed',
+                  browser_type: form.browser || 'Chrome',
+                  engine: form.engine || 'chromium',
+                  viewport: form.screen === 'custom' ? (form.customViewport || '1280x800') : '1280x800',
+                  os: form.os || null,
+                  user_agent: form.ua || null,
+                  platform: form.platform || null,
+                  fingerprint_config: {
+                    webrtc: form.webrtc,
+                    timezone: form.timezone,
+                    location: form.location,
+                    language: form.language,
+                    displayLanguage: form.displayLanguage,
+                    randomizeOnStart: !!form.randomFingerprint,
+                  },
+                  status: 'active',
+                }
+                await createDevice(payload)
+              }}>Save Profile</Button>
             </div>
           </CardContent>
         </Card>

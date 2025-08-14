@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { createTemplate } from '@/lib/taskTemplates'
 
 const defaultOps = ['Access Website','Click','Type','Wait','Scroll','Screenshot','Go Back','Refresh','Close Tab']
 
@@ -73,7 +74,21 @@ export default function RPABuilder(){
               </div>
 
               <div className="flex gap-2">
-                <Button className="bg-gradient-primary">Save</Button>
+                <Button className="bg-gradient-primary" onClick={async ()=>{
+                  const mapped = steps.map((s:any)=>{
+                    if (s.action === 'Access Website') return { action: 'open', url: s.url }
+                    if (s.action === 'Click') return { action: 'click', selector: s.selector }
+                    if (s.action === 'Type') return { action: 'type', selector: s.selector, text: s.text }
+                    if (s.action === 'Wait') return { action: 'wait', ms: s.ms }
+                    if (s.action === 'Scroll') return { action: 'scroll' }
+                    if (s.action === 'Refresh') return { action: 'refresh' }
+                    if (s.action === 'Go Back') return { action: 'back' }
+                    if (s.action === 'Screenshot') return { action: 'screenshot' }
+                    if (s.action === 'Close Tab') return { action: 'close_tab' }
+                    return { action: 'noop' }
+                  })
+                  await createTemplate({ name: name || 'Untitled Process', description: `Group: ${group}`, steps: mapped, tags: [] })
+                }}>Save</Button>
                 <Button variant="outline">Run</Button>
               </div>
             </div>
