@@ -23,6 +23,10 @@ import AITraining from "./pages/referrals/AITraining";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import RunDetails from "./pages/RunDetails";
+import ProfileWizard from "./pages/ProfileWizard";
+import Synchronizer from "./pages/Synchronizer";
+import RPABuilder from "./pages/RPABuilder";
+import Marketplace from "./pages/Marketplace";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +60,10 @@ const App = () => (
                     <Route path="/referrals/ai-training" element={<AITraining />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/runs/:id" element={<RunDetails />} />
+                    <Route path="/profiles/new" element={<ProfileWizard />} />
+                    <Route path="/synchronizer" element={<Synchronizer />} />
+                    <Route path="/rpa" element={<RPABuilder />} />
+                    <Route path="/marketplace" element={<Marketplace />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Layout>

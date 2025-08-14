@@ -52,7 +52,7 @@ export default function DeviceProfiles() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [filter, setFilter] = useState("all");
-  const [newProfile, setNewProfile] = useState<any>({ device_name: '', type: '', os: '', browser: '', viewport: '', ua: '', webgl_renderer: '' })
+  const [newProfile, setNewProfile] = useState<any>({ device_name: '', type: '', os: '', browser: '', viewport: '', ua: '', webgl_renderer: '', engine: 'chromium' })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [page, setPage] = useState(0)
   const [pageSize] = useState(50)
@@ -212,7 +212,7 @@ export default function DeviceProfiles() {
                   </div>
                   <div>
                     <Label htmlFor="device-browser">Browser</Label>
-                    <Select>
+                    <Select onValueChange={(v)=> setNewProfile({ ...newProfile, browser: v })}>
                       <SelectTrigger className="mt-2">
                         <SelectValue placeholder="Select browser" />
                       </SelectTrigger>
@@ -228,6 +228,18 @@ export default function DeviceProfiles() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <Label htmlFor="engine">Engine</Label>
+                    <Select value={newProfile.engine} onValueChange={(v)=> setNewProfile({ ...newProfile, engine: v })}>
+                      <SelectTrigger className="mt-2">
+                        <SelectValue placeholder="Select engine" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="chromium">Chromium (Playwright)</SelectItem>
+                        <SelectItem value="camoufox">Camoufox (Firefox anti-detect)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
                     <Label htmlFor="screen-resolution">Screen Resolution</Label>
                     <Input
                       id="screen-resolution"
@@ -235,16 +247,6 @@ export default function DeviceProfiles() {
                       className="mt-2"
                       value={newProfile.viewport}
                       onChange={(e) => setNewProfile({ ...newProfile, viewport: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="webgl-renderer">WebGL Renderer</Label>
-                    <Input
-                      id="webgl-renderer"
-                      placeholder="Apple A18 Pro GPU"
-                      className="mt-2"
-                      value={newProfile.webgl_renderer}
-                      onChange={(e) => setNewProfile({ ...newProfile, webgl_renderer: e.target.value })}
                     />
                   </div>
                 </div>
@@ -268,6 +270,7 @@ export default function DeviceProfiles() {
                     const payload = {
                       device_name: newProfile.device_name || 'Unnamed Device',
                       browser_type: newProfile.browser || 'Chrome',
+                      engine: newProfile.engine || 'chromium',
                       viewport: newProfile.viewport || '1280x800',
                       os: newProfile.os || null,
                       user_agent: newProfile.ua || null,

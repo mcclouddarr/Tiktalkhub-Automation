@@ -14,6 +14,7 @@
     "electron:dev": "npm run build && electron .",
     "electron:pack": "node electron/prepack.js && electron-builder --win --x64",
     "electron:pack:ia32": "node electron/prepack.js && electron-builder --win --ia32",
+    "camoufox:setup": "node scripts/runner/install_camoufox.js",
     "postinstall": "playwright install chromium || true"
   },
   "dependencies": {

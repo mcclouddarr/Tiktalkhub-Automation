@@ -59,7 +59,18 @@ const BEHAVIOR_DEFAULTS_DEFAULT = '{"delayMultiplier":1.2,"randomness":0.25}'
 let children = []
 
 function startService(scriptRelPath, extraEnv = {}){
-  const scriptPath = path.join(process.resourcesPath || process.cwd(), scriptRelPath)
+  let scriptPath
+  if (app.isPackaged) {
+    const resources = process.resourcesPath
+    const unpackedPath = path.join(resources, 'app.asar.unpacked', scriptRelPath)
+    if (fs.existsSync(unpackedPath)) {
+      scriptPath = unpackedPath
+    } else {
+      scriptPath = path.join(app.getAppPath(), scriptRelPath)
+    }
+  } else {
+    scriptPath = path.join(process.cwd(), scriptRelPath)
+  }
   const env = {
     ...process.env,
     SUPABASE_URL: process.env.SUPABASE_URL,
@@ -67,11 +78,11 @@ function startService(scriptRelPath, extraEnv = {}){
     PHANTOM_EXECUTABLE: process.env.PHANTOM_EXECUTABLE || PHANTOM_EXECUTABLE_DEFAULT,
     PHANTOM_EXTRA_ARGS: process.env.PHANTOM_EXTRA_ARGS || PHANTOM_EXTRA_ARGS_DEFAULT,
     BEHAVIOR_DEFAULTS: process.env.BEHAVIOR_DEFAULTS || BEHAVIOR_DEFAULTS_DEFAULT,
+    ELECTRON_RUN_AS_NODE: '1',
     ...extraEnv,
   }
-  // Use the Electron-bundled Node runtime to execute JS scripts
   const nodeRuntime = process.execPath
-  const child = spawn(nodeRuntime, [scriptPath], { env, stdio: 'inherit' })
+  const child = spawn(nodeRuntime, [scriptPath], { env, stdio: 'inherit', windowsHide: true })
   children.push(child)
   child.on('exit', (code) => { console.log(`${scriptRelPath} exited`, code) })
 }
@@ -82,17 +93,32 @@ function createWindow(){
     height: 800,
     webPreferences: { nodeIntegration: false, contextIsolation: true }
   })
-  const indexPath = path.join(process.resourcesPath || process.cwd(), 'dist', 'index.html')
+  const basePath = app.isPackaged ? app.getAppPath() : process.cwd()
+  const indexPath = path.join(basePath, 'dist', 'index.html')
   win.loadFile(indexPath)
 }
+
+// Ensure single instance early
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+  process.exit(0)
+}
+app.on('second-instance', () => {
+  const win = BrowserWindow.getAllWindows()[0]
+  if (win) { if (win.isMinimized()) win.restore(); win.focus() }
+})
 
 app.whenReady().then(() => {
   // attempt loading env again after app is ready (app.getAppPath resolves inside asar)
   try { const p = path.join(app.getAppPath(), '.env'); tryLoadEnvAt(p) } catch{}
 
-  startService(path.join('scripts','runner','server.js'))
-  startService(path.join('scripts','scheduler','worker.js'))
-  startService(path.join('scripts','proxies','score_worker.js'))
+  if (!process.env.DISABLE_SERVICES) {
+    startService(path.join('scripts','runner','server.js'))
+    startService(path.join('scripts','runner','syncHub.js'))
+    startService(path.join('scripts','scheduler','worker.js'))
+    startService(path.join('scripts','proxies','score_worker.js'))
+  }
   createWindow()
 
   app.on('activate', () => {
@@ -101,7 +127,9 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  if (process.platform !== 'darwin') {
+    app.quit()
+  }
 })
 
 app.on('before-quit', () => {

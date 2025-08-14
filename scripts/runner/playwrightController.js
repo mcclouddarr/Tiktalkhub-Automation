@@ -102,7 +102,7 @@ function isBlockError(err){
   return s.includes('403') || s.includes('blocked') || s.includes('forbidden')
 }
 
-export async function launchSession({ run_id, launchConfig, cookies, target, steps = [] }){
+export async function launchSession({ run_id, engine = 'chromium', launchConfig, cookies, target, steps = [] }){
   const outDir = path.resolve(process.cwd(), 'runner_artifacts')
   fs.mkdirSync(outDir, { recursive: true })
 
@@ -113,6 +113,22 @@ export async function launchSession({ run_id, launchConfig, cookies, target, ste
   while (attempt < maxAttempts){
     attempt++
     const proxy = proxyFromLaunchConfig(launchConfig)
+
+    if (engine && String(engine).toLowerCase() === 'camoufox') {
+      const { startCamoufoxServer, runWithCamoufox } = await import('./camoufoxAdapter.js')
+      const port = parseInt(process.env.CAMOUFOX_PORT || '59001') + Math.floor(Math.random()*500)
+      const { child, endpoint } = await startCamoufoxServer({ port, wsPath: '/playwright', proxy, geoip: true })
+      try {
+        const logFn = (level, message, data) => log(run_id, level, message, data)
+        await runWithCamoufox({ wsEndpoint: endpoint, launchConfig, cookies, target, steps, log: logFn })
+        try { child.kill() } catch{}
+        return
+      } catch (e) {
+        try { child.kill() } catch{}
+        throw e
+      }
+    }
+
     const launchOptions = {
       headless: !!launchConfig.headless,
       proxy,
