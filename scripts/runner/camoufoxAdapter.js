@@ -21,9 +21,7 @@ export async function startCamoufoxServer({ port, wsPath = '/playwright', proxy,
 }
 
 export async function runWithCamoufox({ wsEndpoint, launchConfig, cookies, target, steps, log }){
-  const pw = await connect({ wsEndpoint })
-  // Assume remote exposes a default browser; open context
-  const browser = await pw.chromium.launch({})
+  const browser = await connect({ wsEndpoint })
   const context = await browser.newContext({
     userAgent: launchConfig.headers?.['User-Agent'] || launchConfig.userAgent || undefined,
     viewport: Array.isArray(launchConfig.viewport) ? { width: launchConfig.viewport[0], height: launchConfig.viewport[1] } : undefined,
