@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createTemplate } from '@/lib/taskTemplates'
+import { launchSteps } from '@/lib/runnerClient'
 
 const defaultOps = ['Access Website','Click','Type','Wait','Scroll','Screenshot','Go Back','Refresh','Close Tab']
 
@@ -89,7 +90,21 @@ export default function RPABuilder(){
                   })
                   await createTemplate({ name: name || 'Untitled Process', description: `Group: ${group}`, steps: mapped, tags: [] })
                 }}>Save</Button>
-                <Button variant="outline">Run</Button>
+                <Button variant="outline" onClick={async ()=>{
+                  const mapped = steps.map((s:any)=>{
+                    if (s.action === 'Access Website') return { action: 'open', url: s.url }
+                    if (s.action === 'Click') return { action: 'click', selector: s.selector }
+                    if (s.action === 'Type') return { action: 'type', selector: s.selector, text: s.text }
+                    if (s.action === 'Wait') return { action: 'wait', ms: s.ms }
+                    if (s.action === 'Scroll') return { action: 'scroll' }
+                    if (s.action === 'Refresh') return { action: 'refresh' }
+                    if (s.action === 'Go Back') return { action: 'back' }
+                    if (s.action === 'Screenshot') return { action: 'screenshot' }
+                    if (s.action === 'Close Tab') return { action: 'close_tab' }
+                    return { action: 'noop' }
+                  })
+                  await launchSteps(mapped, { engine: 'chromium', headless: false })
+                }}>Run</Button>
               </div>
             </div>
 
