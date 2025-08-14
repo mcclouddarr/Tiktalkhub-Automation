@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { listTemplates } from '@/lib/taskTemplates'
+import { listTemplates, createTemplate } from '@/lib/taskTemplates'
 
 export default function Marketplace(){
   const [search, setSearch] = useState('')
@@ -34,8 +34,10 @@ export default function Marketplace(){
             <CardContent>
               <div className="text-sm text-muted-foreground h-12 overflow-hidden">{t.description || 'No description'}</div>
               <div className="mt-3 flex gap-2">
-                <Button size="sm">Import</Button>
-                <Button size="sm" variant="outline">Preview</Button>
+                <Button size="sm" onClick={async ()=>{
+                  await createTemplate({ name: `${t.name} (Imported)`, description: t.description || '', steps: t.steps || [], tags: t.tags || [] })
+                }}>Import</Button>
+                <Button size="sm" variant="outline" onClick={()=> { console.log('Template preview', t) }}>Preview</Button>
               </div>
             </CardContent>
           </Card>
